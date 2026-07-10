@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#101316">
+<title>격벽 · BULKHEAD · Codex build</title>
+<script src="../build-meta.js" defer></script>
+<style>
+  :root{
+    --bg:#101316;--panel:#171c20;--ink:#edf2f1;--dim:#879298;--line:#334048;
+    --cyan:#58d6d0;--amber:#f4c95d;--coral:#ff725e;--green:#7bd88f;
+    --build-meta-color:var(--dim);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--bg)}
+  body{min-height:100dvh;background:var(--bg);color:var(--ink);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Cascadia Mono",monospace;font-variant-numeric:tabular-nums}
+  button{font:inherit}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+  #app{width:min(100%,520px);min-height:100dvh;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column}
+  .top{display:grid;grid-template-columns:1fr repeat(3,auto);gap:10px;align-items:center;border-top:5px solid var(--ink);border-bottom:1px solid var(--line);padding:10px 0;font-size:11px;color:var(--dim)}
+  .top b{color:var(--ink);font-size:13px}.top .danger b{color:var(--coral)}
+  .lang{border:1px solid var(--line);background:none;color:var(--ink);padding:5px 8px;border-radius:3px;font-size:10px;font-weight:800}
+  .mission{padding:16px 0 10px}.kicker{color:var(--cyan);font-size:10px;font-weight:800}.mission h1{font-size:22px;line-height:1.2;margin-top:5px;letter-spacing:0}.mission p{color:var(--dim);font:12px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin-top:7px}
+  .readout{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 0}
+  .line-label{display:flex;justify-content:space-between;gap:8px;color:var(--dim);font-size:10px;margin-bottom:10px}.line-label strong{color:var(--amber)}
+  #hull{display:grid;grid-template-columns:repeat(15,minmax(0,1fr));gap:2px;width:100%;min-height:42px}
+  .glyph{display:flex;align-items:center;justify-content:center;min-width:0;aspect-ratio:1/1.12;background:#14191d;border-bottom:2px solid var(--line);color:var(--ink);font-size:clamp(14px,4.8vw,21px);font-weight:800;position:relative}
+  .glyph.safe{background:#10201e;border-color:var(--cyan);color:var(--cyan)}
+  .glyph.lost{color:var(--coral);background:#211513;text-decoration:line-through;opacity:.75}
+  .glyph.hazard{color:var(--coral);animation:pulse 1s steps(2,end) infinite}.glyph.socket{color:var(--amber);border-color:var(--amber)}
+  .glyph.scope-start,.glyph.scope-end{color:var(--cyan);font-size:25px}.glyph.core{color:var(--amber)}
+  @keyframes pulse{50%{opacity:.45}}
+  .preview{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+  .metric{border-left:2px solid var(--line);padding-left:7px;min-height:38px;color:var(--dim);font-size:10px;line-height:1.4}.metric b{display:block;color:var(--ink);font-size:13px}.metric.good{border-color:var(--green)}.metric.good b{color:var(--green)}.metric.bad{border-color:var(--coral)}.metric.bad b{color:var(--coral)}
+  .section-title{display:flex;justify-content:space-between;align-items:end;margin-top:15px;color:var(--dim);font-size:10px}.section-title b{color:var(--ink);font-size:12px}
+  #cartridges{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}
+  .cart{min-height:74px;background:none;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px 5px;text-align:center}.cart .pair{display:block;color:var(--cyan);font-size:22px;font-weight:900}.cart small{display:block;color:var(--dim);font-size:9px;line-height:1.4;margin-top:4px}.cart.selected{border-color:var(--cyan);background:#11201f}.cart.mismatch .pair{color:var(--coral)}
+  #sockets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:7px}
+  .socket-btn{min-height:48px;border:1px solid var(--amber);background:none;color:var(--amber);border-radius:4px;font-weight:900}.socket-btn.selected{background:var(--amber);color:var(--bg)}
+  .actions{display:grid;grid-template-columns:auto 1fr;gap:7px;margin-top:12px}.reroll,.commit{min-height:52px;border-radius:4px;font-weight:900}.reroll{width:54px;background:none;border:1px solid var(--line);color:var(--dim);font-size:19px}.reroll:disabled{opacity:.25}.commit{border:0;background:var(--ink);color:var(--bg);font-size:14px}.commit:disabled{opacity:.28}
+  #event{min-height:43px;margin-top:10px;border-left:3px solid var(--line);padding:4px 0 4px 9px;color:var(--dim);font:12px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}#event.good{border-color:var(--green);color:var(--green)}#event.bad{border-color:var(--coral);color:var(--coral)}
+  .archive{margin-top:auto;padding-top:16px;border-top:1px solid var(--line);color:var(--dim);font-size:10px;line-height:1.6}.archive b{color:var(--ink)}
+  .overlay{position:fixed;inset:0;z-index:10;background:rgba(10,13,15,.97);display:flex;overflow:auto;padding:18px}.overlay[hidden]{display:none}.sheet{width:min(100%,430px);margin:auto;border-top:6px solid var(--cyan);border-bottom:1px solid var(--line);padding:18px 0}.sheet .tag{display:flex;justify-content:space-between;color:var(--dim);font-size:10px}.sheet h2{font-size:28px;margin-top:16px}.sheet .lead{color:var(--dim);font:13px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin-top:10px}.demo{margin:16px 0;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);color:var(--amber);font-size:17px;line-height:1.8}.rules{color:var(--dim);font:12px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.rules b{color:var(--ink)}.wide{width:100%;min-height:54px;border:0;border-radius:4px;background:var(--cyan);color:#071211;font-weight:900;margin-top:16px}.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:15px 0}.result-grid div{border-top:2px solid var(--line);padding-top:7px;color:var(--dim);font-size:10px}.result-grid b{display:block;color:var(--ink);font-size:20px}.fragments{margin-top:12px;color:var(--amber);font-size:12px;line-height:1.8}
+  @media(max-width:370px){#app{padding-left:9px;padding-right:9px}.top{gap:6px}.mission h1{font-size:20px}.glyph{font-size:13px}.cart small{font-size:8px}}
+  @media(prefers-reduced-motion:reduce){.glyph.hazard{animation:none}}
+</style>
+</head>
+<body>
+<main id="app">
+  <div class="top">
+    <span>DECK <b id="deckNo">01/08</b></span>
+    <span>o <b id="savedNo">0</b></span>
+    <span>! <b id="logNo">0</b></span>
+    <span class="danger">HULL <b id="hullNo">3</b></span>
+  </div>
+  <section class="mission">
+    <div class="kicker">TOY 08 · CODEX BUILD · ASCII-NATIVE</div>
+    <h1 id="missionTitle">격벽 / BULKHEAD</h1>
+    <p id="missionCopy"></p>
+  </section>
+  <section class="readout" aria-label="격실 문자열">
+    <div class="line-label"><span id="hazardLabel"></span><strong id="pressureLabel"></strong></div>
+    <div id="hull" role="img" aria-live="polite"></div>
+    <div class="preview">
+      <div class="metric" id="holdMetric"><span id="holdLabel"></span><b id="holdValue">-</b></div>
+      <div class="metric" id="crewMetric"><span id="crewLabel"></span><b id="crewValue">0</b></div>
+      <div class="metric" id="recordMetric"><span id="recordLabel"></span><b id="recordValue">0</b></div>
+    </div>
+  </section>
+  <div class="section-title"><b id="cartTitle"></b><span id="cartHint"></span></div>
+  <div id="cartridges"></div>
+  <div class="section-title"><b id="socketTitle"></b><span id="socketHint"></span></div>
+  <div id="sockets"></div>
+  <div class="actions">
+    <button class="reroll" id="rerollBtn" type="button" title="Reroll">↻</button>
+    <button class="commit" id="commitBtn" type="button" disabled></button>
+  </div>
+  <div id="event" role="status"></div>
+  <footer class="archive"><b id="archiveTitle"></b><div id="archiveText"></div><div class="build-meta" data-build-meta>DEPLOY 확인 중</div></footer>
+</main>
+
+<section class="overlay" id="cover">
+  <div class="sheet">
+    <div class="tag"><span>FIELD TEST / 08</span><button class="lang" id="coverLang" type="button">EN</button></div>
+    <h2 id="coverTitle"></h2>
+    <p class="lead" id="coverLead"></p>
+    <div class="demo">[ o ! o <b>]</b> · · ~<br><span style="color:var(--dim);font-size:11px">PAIR = COMPARTMENT / RANGE = WHO LIVES</span></div>
+    <div class="rules" id="coverRules"></div>
+    <button class="wide" id="startBtn" type="button"></button>
+  </div>
+</section>
+
+<section class="overlay" id="result" hidden>
+  <div class="sheet">
+    <div class="tag"><span id="resultTag"></span><span id="resultRun"></span></div>
+    <h2 id="resultTitle"></h2>
+    <p class="lead" id="resultCopy"></p>
+    <div class="result-grid">
+      <div><span id="resCrewLabel"></span><b id="resCrew"></b></div>
+      <div><span id="resLogLabel"></span><b id="resLog"></b></div>
+      <div><span>HULL</span><b id="resHull"></b></div>
+    </div>
+    <div class="fragments" id="resultFragments"></div>
+    <button class="wide" id="againBtn" type="button"></button>
+  </div>
+</section>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const COPY={
+  ko:{mission:"오른쪽에서 재해가 밀려온다. 괄호의 끝을 정해 보호 범위를 닫아라.",hazards:{water:"침수 ~",fire:"화재 *"},pressure:"압력",hold:"격벽",crew:"보호 o",record:"보호 !",cartTitle:"1. 카트리지",cartHint:"괄호 종류가 투과 물질을 정한다",socketTitle:"2. 닫을 위치",socketHint:"긴 범위일수록 하중 증가",holdYes:"유지",holdNo:"파손",mismatch:"누출",commit:"격벽을 닫는다",next:"다음 갑판",reroll:"추가 보급 1회",archive:"회수 기록",emptyArchive:"아직 읽을 수 있는 기록이 없다.",eventPick:"카트리지와 닫을 위치를 선택한다.",eventReady:"괄호 범위가 즉시 계산됐다. 확정 전에는 바꿀 수 있다.",eventHeld:(c,l)=>`격벽 유지. ${c}명과 기록 ${l}개가 괄호 안에 남았다.`,eventBroke:"괄호가 하중을 견디지 못했다. 선체 내구도 -1.",coverTitle:"격벽 / BULKHEAD",coverLead:"괄호는 장식이 아니다. 짝과 범위가 실제 격실이며, 닫는 위치가 누구를 살릴지 결정한다.",coverRules:"<b>카트리지</b>를 고르고 노란 소켓을 탭한다. 미리보기에서 보호 범위와 하중을 확인한 뒤 닫는다.<br><b>[]</b>는 물, <b>()</b>는 불, <b>{}</b>는 둘 다 막지만 약하다. 8개 갑판에서 생존자 8명과 기록 3개를 구한다.",start:"첫 갑판 진입",win:"구조선 봉쇄 완료",lose:"구조선 유실",winCopy:"괄호 안에 남긴 사람과 문장이 다음 구조선의 항로가 된다.",loseCopy:"닫은 범위가 너무 짧았거나, 욕심낸 격벽이 파손됐다.",again:"다시 봉쇄",crewLabel:"생존자",logLabel:"기록",passage:"문서 조각"},
+  en:{mission:"Disaster advances from the right. Close a bracket to define the protected compartment.",hazards:{water:"FLOOD ~",fire:"FIRE *"},pressure:"PRESSURE",hold:"SEAL",crew:"SAFE o",record:"SAFE !",cartTitle:"1. CARTRIDGE",cartHint:"Bracket type decides permeability",socketTitle:"2. CLOSING POSITION",socketHint:"Longer scope adds load",holdYes:"HOLDS",holdNo:"BREAKS",mismatch:"LEAKS",commit:"CLOSE BULKHEAD",next:"NEXT DECK",reroll:"One extra supply",archive:"RECOVERED LOG",emptyArchive:"No readable record yet.",eventPick:"Choose a cartridge and a closing position.",eventReady:"The bracket scope is live. You can still change it.",eventHeld:(c,l)=>`Seal holds. ${c} crew and ${l} record remain inside the brackets.`,eventBroke:"The brackets failed under load. Hull integrity -1.",coverTitle:"BULKHEAD",coverLead:"Brackets are not decoration. Their pair and range are the compartment, and the closing position decides who lives.",coverRules:"Choose a <b>cartridge</b>, then tap a yellow socket. Read the protected scope and load before closing.<br><b>[]</b> stops water, <b>()</b> stops fire, and <b>{}</b> stops both at lower strength. Save 8 crew and 3 records across 8 decks.",start:"ENTER DECK 01",win:"VESSEL CONTAINED",lose:"VESSEL LOST",winCopy:"The people and sentences kept inside your brackets become the next vessel's route.",loseCopy:"You closed too early, or asked a long bracket to hold too much.",again:"SEAL AGAIN",crewLabel:"CREW",logLabel:"LOGS",passage:"FRAGMENT"}
+};
+const FRAGMENTS={ko:["우리는 바다에서 구조된 것이 아니다.","괄호 밖에서 누군가 문을 두드렸다.","갑판 번호는 매번 하나씩 줄어든다.","마지막 구조선의 이름은 아직 비어 있다."],en:["We were not rescued from the sea.","Someone knocked from outside the brackets.","The deck number decreases every time.","The last vessel still has no name."]};
+const DECKS=[
+  {type:"water",p:3,tokens:{2:"o",5:"!",8:"o",11:"o"},s:[4,7,10]},
+  {type:"fire",p:4,tokens:{1:"o",4:"o",7:"!",10:"o"},s:[3,6,9]},
+  {type:"water",p:4,tokens:{2:"!",5:"o",8:"o",12:"o"},s:[4,7,11]},
+  {type:"fire",p:5,tokens:{1:"o",4:"!",7:"o",11:"o"},s:[3,6,10]},
+  {type:"water",p:5,tokens:{2:"o",5:"o",8:"!",12:"o"},s:[4,7,11]},
+  {type:"fire",p:6,tokens:{1:"!",4:"o",8:"o",12:"o"},s:[3,7,11]},
+  {type:"water",p:6,tokens:{2:"o",6:"!",9:"o",12:"o"},s:[4,8,11]},
+  {type:"fire",p:7,tokens:{1:"o",5:"o",9:"!",12:"o"},s:[3,7,11]}
+];
+const PAIRS={water:{open:"[",close:"]",label:"WATER",base:3},fire:{open:"(",close:")",label:"FIRE",base:3},universal:{open:"{",close:"}",label:"BOTH",base:2},rare:{open:"<",close:">",label:"BOTH+",base:6}};
+let lang="ko",run=0,meta={fragments:new Set()},state=null;
+function t(k){return COPY[lang][k]}
+function offersFor(deckIndex){
+  const d=DECKS[deckIndex],match=d.type,other=match==="water"?"fire":"water";
+  const list=[{kind:match,strength:d.p+PAIRS[match].base},{kind:"universal",strength:d.p+PAIRS.universal.base},{kind:other,strength:d.p+5}];
+  if(deckIndex===3||deckIndex===6)list[2]={kind:"rare",strength:d.p+PAIRS.rare.base};
+  return list;
+}
+function newRun(){run++;state={deck:0,crew:0,logs:0,hull:3,cart:null,socket:null,sealed:false,reroll:1,offers:offersFor(0),started:performance.now()};renderAll()}
+function current(){return DECKS[state.deck]}
+function loadFor(socket){return current().p+Math.ceil((socket+1)/3)}
+function isMatch(cart){return cart.kind==="universal"||cart.kind==="rare"||cart.kind===current().type}
+function assessment(){
+  if(state.cart===null||state.socket===null)return null;
+  const cart=state.offers[state.cart],socket=current().s[state.socket],match=isMatch(cart),load=loadFor(socket),holds=match&&cart.strength>=load;
+  let crew=0,logs=0;Object.entries(current().tokens).forEach(([i,ch])=>{if(Number(i)<socket){if(ch==="o")crew++;if(ch==="!")logs++;}});
+  return{cart,socket,load,holds,match,crew,logs};
+}
+function renderHull(resolved){
+  const d=current(),a=assessment(),pair=a?PAIRS[a.cart.kind]:null;$("hull").replaceChildren();
+  for(let i=0;i<15;i++){
+    const el=document.createElement("span");el.className="glyph";let ch="·";
+    if(i===0){ch=pair?pair.open:"_";if(pair)el.classList.add("scope-start")}
+    if(d.tokens[i])ch=d.tokens[i];
+    if(d.s.includes(i)){ch="◇";el.classList.add("socket")}
+    if(a&&i===a.socket){ch=pair.close;el.classList.remove("socket");el.classList.add("scope-end")}
+    if(i===13){ch=d.type==="water"?"~":"*";el.classList.add("hazard")}
+    if(i===14){ch="C";el.classList.add("core")}
+    if(a&&i>0&&i<a.socket)el.classList.add("safe");
+    if(resolved&&a&&(!a.holds||i>a.socket&&i<14)){if(d.tokens[i]){ch="×";el.classList.add("lost")}}
+    el.textContent=ch;$("hull").appendChild(el);
+  }
+}
+function renderMetrics(){
+  const a=assessment();
+  ["holdMetric","crewMetric","recordMetric"].forEach(id=>$(id).className="metric");
+  if(!a){$("holdValue").textContent="-";$("crewValue").textContent="0";$("recordValue").textContent="0";return}
+  $("holdValue").textContent=!a.match?t("mismatch"):(a.holds?t("holdYes"):t("holdNo"));$("crewValue").textContent=a.crew;$("recordValue").textContent=a.logs;
+  $("holdMetric").classList.add(a.holds?"good":"bad");if(a.crew)$("crewMetric").classList.add("good");if(a.logs)$("recordMetric").classList.add("good");
+}
+function renderOffers(){
+  $("cartridges").replaceChildren();state.offers.forEach((c,i)=>{const p=PAIRS[c.kind],b=document.createElement("button");b.type="button";b.className="cart"+(state.cart===i?" selected":"")+(!isMatch(c)?" mismatch":"");b.innerHTML=`<span class="pair">${p.open}${p.close}</span><small>${p.label}<br>STR ${c.strength}</small>`;b.disabled=state.sealed;b.onclick=()=>{state.cart=i;state.socket=null;renderAll();$("event").textContent=t("eventReady")};$("cartridges").appendChild(b)});
+}
+function renderSockets(){const d=current();$("sockets").replaceChildren();d.s.forEach((pos,i)=>{const b=document.createElement("button");b.type="button";b.className="socket-btn"+(state.socket===i?" selected":"");b.textContent=`${String(pos).padStart(2,"0")} / LOAD ${loadFor(pos)}`;b.disabled=state.sealed||state.cart===null;b.onclick=()=>{state.socket=i;renderAll();$("event").textContent=t("eventReady")};$("sockets").appendChild(b)})}
+function renderArchive(){const arr=[...meta.fragments];$("archiveText").textContent=arr.length?arr.map(i=>`! ${FRAGMENTS[lang][i]}`).join("  "):t("emptyArchive")}
+function renderAll(){
+  document.documentElement.lang=lang;$("deckNo").textContent=String(state.deck+1).padStart(2,"0")+"/08";$("savedNo").textContent=state.crew;$("logNo").textContent=state.logs;$("hullNo").textContent=state.hull;
+  $("missionTitle").textContent=lang==="ko"?"격벽 / BULKHEAD":"BULKHEAD";$("missionCopy").textContent=t("mission");$("hazardLabel").textContent=t("hazards")[current().type];$("pressureLabel").textContent=t("pressure")+" "+current().p;
+  $("holdLabel").textContent=t("hold");$("crewLabel").textContent=t("crew");$("recordLabel").textContent=t("record");$("cartTitle").textContent=t("cartTitle");$("cartHint").textContent=t("cartHint");$("socketTitle").textContent=t("socketTitle");$("socketHint").textContent=t("socketHint");$("archiveTitle").textContent=t("archive");
+  $("rerollBtn").disabled=state.reroll<=0||state.sealed;$("rerollBtn").title=t("reroll");$("commitBtn").disabled=!state.sealed&&(state.cart===null||state.socket===null);$("commitBtn").textContent=state.sealed?t("next"):t("commit");renderHull(state.sealed);renderMetrics();renderOffers();renderSockets();renderArchive();
+}
+function seal(){
+  if(state.sealed){nextDeck();return}const a=assessment();if(!a)return;
+  state.sealed=true;if(a.holds){state.crew+=a.crew;state.logs+=a.logs;if(a.logs&&meta.fragments.size<FRAGMENTS.ko.length)meta.fragments.add(meta.fragments.size);$("event").className="good";$("event").textContent=t("eventHeld")(a.crew,a.logs)}else{state.hull--;$("event").className="bad";$("event").textContent=t("eventBroke")}
+  renderAll();if(state.hull<=0)setTimeout(finish,450);
+}
+function nextDeck(){if(state.deck>=DECKS.length-1){finish();return}state.deck++;state.cart=null;state.socket=null;state.sealed=false;state.offers=offersFor(state.deck);$("event").className="";$("event").textContent=t("eventPick");renderAll()}
+function reroll(){if(state.reroll<=0||state.sealed)return;state.reroll--;const d=current();state.offers[2]={kind:"rare",strength:d.p+PAIRS.rare.base};state.cart=null;state.socket=null;renderAll()}
+function finish(){const won=state.hull>0&&state.crew>=8&&state.logs>=3;$("resultTag").textContent=won?"CONTAINED":"LOST";$("resultRun").textContent=`R${run} · ${Math.round((performance.now()-state.started)/1000)}s`;$("resultTitle").textContent=won?t("win"):t("lose");$("resultCopy").textContent=won?t("winCopy"):t("loseCopy");$("resCrewLabel").textContent=t("crewLabel");$("resLogLabel").textContent=t("logLabel");$("resCrew").textContent=state.crew;$("resLog").textContent=state.logs;$("resHull").textContent=state.hull;$("resultFragments").innerHTML=[...meta.fragments].map(i=>`<div>! ${FRAGMENTS[lang][i]}</div>`).join("");$("againBtn").textContent=t("again");$("result").hidden=false}
+function renderCover(){document.documentElement.lang=lang;$("coverTitle").textContent=t("coverTitle");$("coverLead").textContent=t("coverLead");$("coverRules").innerHTML=t("coverRules");$("startBtn").textContent=t("start");$("coverLang").textContent=lang==="ko"?"EN":"KO"}
+$("coverLang").onclick=()=>{lang=lang==="ko"?"en":"ko";renderCover()};$("startBtn").onclick=()=>{$("cover").hidden=true;newRun();$("event").textContent=t("eventPick")};$("commitBtn").onclick=seal;$("rerollBtn").onclick=reroll;$("againBtn").onclick=()=>{$("result").hidden=true;newRun();$("event").textContent=t("eventPick")};
+renderCover();
+window.__TOY08__={start:()=>{$("cover").hidden=true;newRun()},chooseCartridge:i=>{state.cart=i;state.socket=null;renderAll()},chooseSocket:i=>{state.socket=i;renderAll()},seal,getState:()=>state?JSON.parse(JSON.stringify(state)):null};
+</script>
+</body>
+</html>

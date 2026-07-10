@@ -80,4 +80,141 @@
   }
   .status.live{ border-color:var(--act); color:var(--act); }
   .status.pass{ background:var(--ink); color:var(--paper); }
-  .entry.soon{ colo
+  .entry.soon{ color:var(--dim); }
+  .entry.soon .status{ border-style:dashed; color:var(--dim); border-color:var(--dim); }
+  footer{ border-top:2px solid var(--ink); margin-top:28px; padding-top:12px; color:var(--dim); font-size:11px; line-height:1.65; }
+  @media (max-width:390px){
+    .entry{ grid-template-columns:46px minmax(0,1fr); }
+    .status{ grid-column:2; justify-self:start; margin-top:-2px; }
+    .entry.current::before{ left:-10px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="kicker"><span>PLAYGROUND / FIELD TESTS</span><span>01—11</span></div>
+    <h1>TEXT GAME TOYS</h1>
+    <p class="intro">각 토이는 단 하나의 질문만 검증한다. 짧게 플레이하고, 손에 남은 감각을 기록한다.</p>
+  </header>
+
+  <section class="list" aria-label="토이 목록">
+    <a class="entry" href="toys/01-snooze.html">
+      <span class="num">01</span>
+      <span>
+        <span class="eyebrow">SNOOZE / 조작 도미노</span>
+        <span class="title">9분 미루기</span>
+        <span class="question">미루기를 조절해 한 아침의 일정을 맞추는 행위는 재미있는가?</span>
+      </span>
+      <span class="status pass">PASS</span>
+    </a>
+
+    <a class="entry" href="toys/02-ledger.html">
+      <span class="num">02</span>
+      <span>
+        <span class="eyebrow">LIVE FORM / 반복 대조</span>
+        <span class="title">닫힌 창구의 잉여</span>
+        <span class="question">맞으면 안도하고, 어긋나면 불안한 장부 대조는 재미인가, 일인가?</span>
+      </span>
+      <span class="status">ARCHIVE</span>
+    </a>
+
+    <a class="entry" href="toys/03-now-serving.html">
+      <span class="num">03</span>
+      <span>
+        <span class="eyebrow">NOW SERVING / 무언어 Gate B</span>
+        <span class="title">번호표</span>
+        <span class="question">숫자, 순서, 누락만으로 사람이 느껴지는가?</span>
+      </span>
+      <span class="status">ARCHIVE</span>
+    </a>
+
+    <a class="entry" href="toys/04-unanswered.html">
+      <span class="num">04</span>
+      <span>
+        <span class="eyebrow">REPLY TIMING / 벤치마크</span>
+        <span class="title">답장하지 않는 시간</span>
+        <span class="question">즉답, 뜸, 읽씹. 침묵을 고르는 순간의 긴장이 몸에 오는가?</span>
+      </span>
+      <span class="status">ARCHIVE</span>
+    </a>
+
+    <a class="entry" href="toys/05-descent-claude.html">
+      <span class="num">05</span>
+      <span>
+        <span class="eyebrow">THE DESCENT / 경쟁 빌드 · CLAUDE</span>
+        <span class="title">심연은 아래로만 읽힌다 — Claude 해석</span>
+        <span class="question">몇 층에서 로프를 당길 것인가 — 귀환 비용 = 깊이 + 무게. 그 결단이 재미인가?</span>
+      </span>
+      <span class="status">ARCHIVE</span>
+    </a>
+
+    <a class="entry" href="toys/06-descent-codex.html">
+      <span class="num">06</span>
+      <span>
+        <span class="eyebrow">THE DESCENT / 경쟁 빌드 · CODEX</span>
+        <span class="title">심연은 아래로만 읽힌다 — Codex 해석</span>
+        <span class="question">표식 3개를 고르고 스크롤로 확정한다. 어느 문장을 들고 돌아올 것인가?</span>
+      </span>
+      <span class="status">ARCHIVE</span>
+    </a>
+
+    <a class="entry current" href="toys/07-corrosion-claude.html">
+      <span class="num">07</span>
+      <span>
+        <span class="eyebrow">CORROSION / 경쟁 빌드 · CLAUDE · ASCII-NATIVE</span>
+        <span class="title">부식 — 글자를 먹는 얼룩</span>
+        <span class="question">다음 턴에 먹힐 곳이 항상 보인다 — 알고도 막는 손맛이 재미인가? 이름 다섯을 지켜라.</span>
+      </span>
+      <span class="status live">PLAY</span>
+    </a>
+
+    <a class="entry current" href="toys/08-bulkhead-codex.html">
+      <span class="num">08</span>
+      <span>
+        <span class="eyebrow">BULKHEAD / 경쟁 빌드 · CODEX · ASCII-NATIVE</span>
+        <span class="title">격벽 — 괄호로 봉쇄하라</span>
+        <span class="question">닫는 괄호의 위치가 누구와 어떤 기록을 살릴지 결정한다 — 범위 선택은 재미인가?</span>
+      </span>
+      <span class="status live">PLAY</span>
+    </a>
+
+    <a class="entry current" href="toys/09-overprint-codex.html">
+      <span class="num">09</span>
+      <span>
+        <span class="eyebrow">OVERPRINT / 획 합성 · CODEX · ASCII-NATIVE</span>
+        <span class="title">겹쳐 찍기 — 새 글리프를 인쇄하라</span>
+        <span class="question">두 문자의 획을 맞춰 명령을 만들고 기계를 움직이는 손맛이 있는가?</span>
+      </span>
+      <span class="status live">PLAY</span>
+    </a>
+
+    <a class="entry current" href="toys/10-lossy-line-codex.html">
+      <span class="num">10</span>
+      <span>
+        <span class="eyebrow">LOSSY LINE / 손실 인덱스 · CODEX · ASCII-NATIVE</span>
+        <span class="title">손실 회선 — 미끼 문자를 끼워라</span>
+        <span class="question">중요한 코드어를 손실 위치 밖으로 밀어 현장 상태를 바꾸는 판단은 재미있는가?</span>
+      </span>
+      <span class="status live">PLAY</span>
+    </a>
+
+    <a class="entry current" href="toys/11-column-80-codex.html">
+      <span class="num">11</span>
+      <span>
+        <span class="eyebrow">COLUMN 80 / 문자열 압축 · CODEX · ASCII-NATIVE</span>
+        <span class="title">80열 생존자 — 세계를 접어라</span>
+        <span class="question">반복 문자열을 접어 칸을 만들고 다시 펼쳐 사람·벽·적을 작동시키는가?</span>
+      </span>
+      <span class="status live">PLAY</span>
+    </a>
+  </section>
+
+  <footer>
+    Codex × Claude 공동 아이디에이션<br>
+    토이는 증거를 모으지만 결론을 대신하지 않는다.
+    <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
+  </footer>
+</main>
+</body>
+</html>

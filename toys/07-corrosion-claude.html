@@ -70,6 +70,7 @@
 
   /* 오버레이 */
   .ovl{ position:fixed; inset:0; background:rgba(6,9,6,.96); z-index:10; overflow-y:auto; display:flex; }
+  .ovl[hidden]{ display:none; }
   .panel{ margin:auto; width:min(92vw,430px); border:1px solid var(--ph); border-radius:4px;
           padding:20px 16px; background:var(--bg); }
   .tag{ font-size:11px; color:var(--dim); display:flex; justify-content:space-between; letter-spacing:1px; }
@@ -127,6 +128,7 @@
     <button class="tool" id="toolPass">▸<small id="lblPass"></small></button>
   </div>
   <div id="specials"></div>
+  <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
 </div>
 
 <div id="toast" role="status"></div>
@@ -515,4 +517,24 @@ function startRun(){
   S.b[idx(SEED.r,SEED.c)].corrupt=true;
   buildBoard(); render(); captionStep();
   // 콜드 오픈: 자동 1회 확산 시연 (턴 소모 없음)
-  setTimeout(()=>{ const picks=spreadPicks(S.b
+  setTimeout(()=>{ const picks=spreadPicks(S.b,1);
+    picks.forEach(i=>{ S.b[i].corrupt=true; });
+    render(); picks.forEach(i=>cellEls[i].classList.add("justAte"));
+    toast(t("demoToast"));
+  }, reduced?200:900);
+}
+function renderCover(){
+  document.documentElement.lang=lang;
+  $("cvSub").textContent=t("sub");
+  $("cvQ").innerHTML=t("q"); $("cvRules").innerHTML=t("rules");
+  $("startBtn").textContent=t("start");
+  $("langBtn").textContent=lang==="ko"?"EN":"KO";
+  $("lblWall").textContent=t("lblWall"); $("lblPurge").textContent=t("lblPurge"); $("lblPass").textContent=t("lblPass");
+}
+$("langBtn").onclick=()=>{ lang=lang==="ko"?"en":"ko"; renderCover(); };
+$("startBtn").onclick=()=>{ $("cover").hidden=true; startRun(); };
+$("againBtn").onclick=()=>{ $("end").hidden=true; renderCover(); startRun(); };
+renderCover();
+</script>
+</body>
+</html>

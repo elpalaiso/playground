@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SNOOZE · Toy 01</title>
+<style>
+  :root{
+    --card: rgba(16,22,38,.92);
+    --card2: rgba(22,30,50,.95);
+    --ink: #e9eef7;
+    --dim: #93a3bb;
+    --line: rgba(147,163,187,.25);
+    --ok: #6bd68e;
+    --warn: #f2c14e;
+    --bad: #ef7f74;
+    --accent: #85b6ff;
+    --snz: #b892f5;
+    --btn: #1d2740;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    color:var(--ink);
+    background:linear-gradient(180deg, #0f1626 0%, #1b2440 100%);
+    overflow:hidden;
+    user-select:none; -webkit-user-select:none;
+  }
+  #app{ max-width:480px; margin:0 auto; height:100dvh; display:flex; flex-direction:column; padding:10px 12px; gap:8px; }
+
+  /* header */
+  #hdr{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .hchip{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:4px 10px; font-size:12px; color:var(--dim); font-weight:700; }
+  #clock{ font-size:30px; font-weight:800; letter-spacing:1px; font-variant-numeric:tabular-nums; }
+  #stateFace{ font-size:20px; }
+
+  /* timeline */
+  #tl{ position:relative; flex:1; min-height:0; background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+  .tick{ position:absolute; left:0; right:0; border-top:1px dashed rgba(147,163,187,.14); }
+  .tick label{ position:absolute; right:6px; top:-8px; font-size:10px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #sweep{ position:absolute; left:0; right:0; height:0; border-top:2px solid var(--accent); box-shadow:0 0 14px rgba(133,182,255,.55); transition:top .12s linear; z-index:3; }
+  #sweep b{ position:absolute; left:6px; top:-9px; font-size:10px; background:var(--accent); color:#0d1424; border-radius:6px; padding:1px 5px; font-variant-numeric:tabular-nums; }
+  .chip{ position:absolute; display:flex; align-items:center; gap:4px; background:var(--btn); border:1px solid var(--line); border-radius:10px; padding:3px 7px; font-size:12px; font-weight:700; transform:translateY(-50%); transition:top .35s cubic-bezier(.2,.9,.3,1.2); z-index:2; }
+  .chip .t{ color:var(--dim); font-size:10px; font-variant-numeric:tabular-nums; }
+  .chip.ring{ animation:pulse .7s infinite; border-color:var(--accent); }
+  .chip.done{ opacity:.38; }
+  .chip.off{ opacity:.28; text-decoration:line-through; }
+  @keyframes pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(133,182,255,.6);} 50%{ box-shadow:0 0 0 7px rgba(133,182,255,0);} }
+  .ghost{ position:absolute; transform:translateY(-50%); font-size:10px; color:var(--snz); opacity:.75; border:1px dashed var(--snz); border-radius:8px; padding:1px 5px; z-index:1; white-space:nowrap; }
+  .wmark{ position:absolute; right:44px; transform:translateY(-50%); font-size:11px; color:var(--dim); font-weight:700; z-index:1; }
+  .wline{ position:absolute; left:0; right:0; border-top:1px solid rgba(239,127,116,.4); z-index:1; }
+  .wline label{ position:absolute; left:6px; top:-15px; font-size:10px; color:var(--bad); font-weight:800; }
+
+  /* tray */
+  #tray{ display:flex; gap:6px; }
+  .mini{ flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:6px 2px; text-align:center; font-size:16px; position:relative; min-height:52px; }
+  .mini small{ display:block; font-size:9px; color:var(--dim); margin-top:2px; }
+  .mini .st{ position:absolute; top:2px; right:5px; font-size:11px; font-weight:900; }
+  .mini.new{ animation:pop .5s; }
+  @keyframes pop{ 0%{ transform:scale(.4); opacity:0;} 100%{ transform:scale(1); opacity:1;} }
+  #leaveBtn{ background:var(--btn); border:1px solid var(--accent); color:var(--ink); border-radius:12px; font-size:12px; font-weight:800; padding:0 10px; display:none; }
+
+  /* action sheet */
+  #sheet{ background:var(--card2); border:1px solid var(--line); border-radius:16px; padding:10px; min-height:128px; display:flex; flex-direction:column; gap:8px; }
+  #sheetIdle{ color:var(--dim); font-size:12px; text-align:center; margin:auto; }
+  #sheetHead{ display:none; align-items:center; gap:8px; font-weight:800; font-size:15px; }
+  #sheetHead .big{ font-size:26px; }
+  #sheetHead .sub{ color:var(--dim); font-size:11px; font-weight:600; }
+  #btns{ display:none; gap:8px; }
+  .vbtn{ flex:1; background:var(--btn); color:var(--ink); border:1px solid var(--line); border-radius:14px; min-height:72px; font-size:15px; font-weight:800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+  .vbtn small{ font-size:9.5px; color:var(--dim); font-weight:600; }
+  .vbtn:active{ transform:scale(.96); }
+  .vbtn:disabled{ opacity:.32; }
+  .vbtn.snz{ border-color:var(--snz); color:var(--snz); }
+
+  /* overlays */
+  .ovl{ position:fixed; inset:0; background:rgba(8,12,22,.88); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:10; }
+  .panel{ width:min(92vw,420px); max-height:92dvh; overflow-y:auto; background:var(--card2); border:1px solid var(--line); border-radius:20px; padding:22px 18px; text-align:center; }
+  .panel h1{ font-size:34px; letter-spacing:6px; font-weight:900; }
+  .panel .tag{ color:var(--dim); font-size:11px; font-weight:700; letter-spacing:2px; margin-top:2px; }
+  .q{ margin:16px 0; padding:12px; border:1px dashed var(--accent); border-radius:12px; font-size:14.5px; font-weight:700; line-height:1.55; }
+  .q small{ display:block; color:var(--dim); font-weight:600; font-size:11.5px; margin-top:4px; }
+  .legend{ display:flex; gap:6px; margin:14px 0; }
+  .legend div{ flex:1; background:var(--btn); border-radius:10px; padding:8px 2px; font-size:13px; font-weight:800; }
+  .legend small{ display:block; font-size:9.5px; color:var(--dim); font-weight:600; margin-top:2px; }
+  .go{ width:100%; min-height:60px; border:none; border-radius:14px; background:var(--accent); color:#0d1424; font-size:17px; font-weight:900; margin-top:6px; }
+  .go:active{ transform:scale(.97); }
+  .flavor{ color:var(--dim); font-size:11.5px; line-height:1.6; margin-top:12px; }
+
+  /* results */
+  #resRows{ margin:14px 0 6px; text-align:left; }
+  .rrow{ display:flex; align-items:center; gap:10px; padding:7px 10px; border-bottom:1px solid var(--line); font-size:14px; font-weight:700; }
+  .rrow .mark{ margin-left:auto; font-weight:900; font-size:15px; }
+  .verdict{ font-size:16px; font-weight:900; margin:10px 0 2px; }
+  .stats{ color:var(--dim); font-size:11.5px; line-height:1.7; }
+  #seq{ font-size:11px; color:var(--dim); word-break:break-all; line-height:1.8; background:var(--btn); border-radius:10px; padding:8px; margin:10px 0; }
+  .qq{ font-size:12.5px; line-height:1.7; color:var(--ink); border-top:1px dashed var(--line); margin-top:10px; padding-top:10px; }
+  #toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(140px + env(safe-area-inset-bottom)); background:var(--card2); border:1px solid var(--line); color:var(--ink); border-radius:12px; padding:8px 14px; font-size:12.5px; font-weight:700; opacity:0; transition:opacity .25s; z-index:9; pointer-events:none; max-width:88vw; text-align:center; }
+  .ok{ color:var(--ok);} .warn{ color:var(--warn);} .bad{ color:var(--bad);} .snzc{ color:var(--snz);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <span class="hchip" id="runChip">R1</span>
+    <span id="clock">06:20</span>
+    <span id="stateFace">😴</span>
+    <span class="hchip snzc" id="snzChip">+9 ×0</span>
+  </div>
+
+  <div id="tl"></div>
+
+  <div id="tray">
+    <button id="leaveBtn">🚶<br><small style="font-size:9px">나간다·leave</small></button>
+  </div>
+
+  <div id="sheet">
+    <div id="sheetIdle">… 아침이 흐른다 · morning flows …</div>
+    <div id="sheetHead"><span class="big" id="shIcon"></span><span><span id="shName"></span><br><span class="sub" id="shSub"></span></span></div>
+    <div id="btns">
+      <button class="vbtn" id="bDo"></button>
+      <button class="vbtn snz" id="bSnz">+9<small>미루기 · snooze</small></button>
+      <button class="vbtn" id="bOff">✕<small>끄기 · off</small></button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- intro -->
+<div class="ovl" id="intro">
+  <div class="panel">
+    <h1>SNOOZE</h1>
+    <div class="tag">TOY 01 / 04 · 손맛 토이</div>
+    <div class="q">검증 질문 · The question<br>“9분 미루기의 도미노 — 조작만으로 재미있는가?”
+      <small>Does the 9-minute domino feel good, from pure operation?</small></div>
+    <div class="legend">
+      <div>▶<small>두기 · let</small></div>
+      <div style="color:var(--snz)">+9<small>미루기 · snooze</small></div>
+      <div>✕<small>끄기 · off</small></div>
+    </div>
+    <button class="go" id="startBtn">▶ 시작 · START</button>
+    <div class="flavor">한 번의 아침, 06:20 – 08:10. 알람 다섯 개.<br>당신은 미룰 수 있다. 세계는 기다리지 않는다.<br>One morning. Five alarms. You can snooze. The world won't.</div>
+  </div>
+</div>
+
+<!-- results -->
+<div class="ovl" id="results" style="display:none">
+  <div class="panel">
+    <div class="tag">MORNING REPORT · R<span id="resRun"></span></div>
+    <div class="verdict" id="resVerdict"></div>
+    <div id="resRows"></div>
+    <div class="stats" id="resStats"></div>
+    <div id="seq"></div>
+    <button class="go" id="againBtn">⟳ 한 판 더 · ONE MORE</button>
+    <div class="qq">Q1. 한 번 더 하고 싶은가? · One more?<br>Q2. 방금 그 감각 — 재미인가, 노동인가? · Fun, or chore?</div>
+    <div class="flavor">저장되지 않습니다 · nothing is saved</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---- constants (minutes from 00:00) ---- */
+const START=380, END=490, DEPART=485, LEAVEBY=460, NATURAL=460, COFFEE_BY=405;
+const fmt=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+
+/* ---- state ---- */
+let alarms, now, awake, wakeOff, busyUntil, left, leaveTime, wakeTime, res, snz, seq, ghosts, run=0, t0, timer=null, paused=true, montage=false, doorWaited, coffeeGiven, doorRevealed, ringing=null;
+
+function reset(){
+  alarms=[
+    {id:"wake", icon:"⏰", ko:"기상", en:"wake",  t:390, st:"pending", snoozes:0},
+    {id:"pill", icon:"💊", ko:"약",   en:"pill",  t:420, st:"pending", snoozes:0},
+    {id:"call", icon:"📞", ko:"전화", en:"call",  t:435, st:"pending", snoozes:0},
+    {id:"leave",icon:"🚆", ko:"출발", en:"leave", t:445, st:"pending", snoozes:0},
+    {id:"door", icon:"🚪", ko:"초인종",en:"door", t:455, st:"pending", snoozes:0}
+  ];
+  now=START; awake=false; wakeOff=false; busyUntil=0; left=false; leaveTime=null; wakeTime=null;
+  res={pill:null,call:null,door:null,train:null,coffee:null};
+  snz=0; seq=[]; ghosts=[]; doorWaited=false; coffeeGiven=false; doorRevealed=false; ringing=null; montage=false;
+  run++; t0=Date.now();
+  buildTl(); buildTray(); render(); idleSheet();
+}
+
+/* ---- timeline dom ---- */
+const tl=document.getElementById("tl");
+const pct=m=>((m-START)/(END+5-START)*100);
+function buildTl(){
+  tl.innerHTML="";
+  for(let m=390;m<=480;m+=10){
+    const d=document.createElement("div"); d.className="tick"; d.style.top=pct(m)+"%";
+    if(m%30===0){ const l=document.createElement("label"); l.textContent=fmt(m); d.appendChild(l); }
+    tl.appendChild(d);
+  }
+  const lb=document.createElement("div"); lb.className="wline"; lb.style.top=pct(LEAVEBY)+"%";
+  lb.innerHTML="<label>07:40 이후 출발 = 늦음 · leave-by</label>"; tl.appendChild(lb);
+  const dp=document.createElement("div"); dp.className="wmark"; dp.style.top=pct(DEPART)+"%"; dp.textContent="🚆 08:05 발차·departs"; tl.appendChild(dp);
+  alarms.forEach((a,i)=>{
+    const c=document.createElement("div"); c.className="chip"; c.id="chip_"+a.id;
+    c.style.left=(8+i*8)+"px"; c.style.top=pct(a.t)+"%";
+    c.innerHTML=`<span>${a.icon}</span><span class="t">${fmt(a.t)}</span>`;
+    tl.appendChild(c);
+  });
+  const sw=document.createElement("div"); sw.id="sweep"; sw.innerHTML="<b id='swb'>06:20</b>"; tl.appendChild(sw);
+}
+function moveChip(a){
+  const c=document.getElementById("chip_"+a.id);
+  c.style.top=pct(a.t)+"%";
+  c.querySelector(".t").textContent=fmt(a.t);
+}
+function addGhost(a, fromT){
+  const g=document.createElement("div"); g.className="ghost";
+  g.style.left=(14+alarms.indexOf(a)*8+34)+"px"; g.style.top=pct(fromT)+"%";
+  g.textContent=a.icon+"↓9"; tl.appendChild(g);
+}
+
+/* ---- tray dom ---- */
+const tray=document.getElementById("tray"), leaveBtn=document.getElementById("leaveBtn");
+const trayDefs=[
+  {k:"pill", icon:"💊", ko:"약", en:"pill"},
+  {k:"call", icon:"📞", ko:"전화", en:"call"},
+  {k:"train",icon:"🚆", ko:"기차", en:"train"}
+];
+function miniHtml(d){ return `<div class="mini" id="mini_${d.k}">${d.icon}<small>${d.ko}·${d.en}</small><span class="st" id="st_${d.k}"></span></div>`; }
+function buildTray(){
+  tray.querySelectorAll(".mini").forEach(e=>e.remove());
+  trayDefs.forEach(d=>leaveBtn.insertAdjacentHTML("beforebegin", miniHtml(d)));
+  leaveBtn.style.display="none";
+}
+function revealCard(k, icon, ko, en){
+  leaveBtn.insertAdjacentHTML("beforebegin", miniHtml({k,icon,ko,en}));
+  document.getElementById("mini_"+k).classList.add("new");
+}
+function setMark(k, v){ // v: ok|warn|bad
+  const el=document.getElementById("st_"+k); if(!el) return;
+  el.textContent=v==="ok"?"✓":v==="warn"?"⚠":"✗";
+  el.className="st "+(v==="ok"?"ok":v==="warn"?"warn":"bad");
+}
+
+/* ---- sky ---- */
+function lerp(a,b,t){ return a+(b-a)*t; }
+function sky(){
+  const t=(now-START)/(END-START);
+  const h1=[lerp(15,111,t),lerp(22,139,t),lerp(38,181,t)];
+  const h2=[lerp(27,243,t),lerp(36,217,t),lerp(64,176,t)];
+  document.body.style.background=`linear-gradient(180deg, rgb(${h1.map(Math.round)}) 0%, rgb(${h2.map(Math.round)}) 100%)`;
+}
+
+/* ---- render ---- */
+function render(){
+  document.getElementById("clock").textContent=fmt(now);
+  document.getElementById("swb").textContent=fmt(now);
+  document.getElementById("sweep").style.top=pct(now)+"%";
+  document.getElementById("stateFace").textContent= left?"🚶": busyUntil>now?"📞": awake?"🙂":"😴";
+  document.getElementById("snzChip").textContent="+9 ×"+snz;
+  document.getElementById("runChip").textContent="R"+run;
+  sky();
+}
+
+/* ---- toast ---- */
+let toastTm;
+function toast(msg){
+  const t=document.getElementById("toast"); t.textContent=msg; t.style.opacity=1;
+  clearTimeout(toastTm); toastTm=setTimeout(()=>t.style.opacity=0, 1900);
+}
+
+/* ---- engine ---- */
+function speed(){ return montage?36:170; }
+function loop(){
+  if(paused) return;
+  timer=setTimeout(()=>{ step(); loop(); }, speed());
+}
+function step(){
+  now++;
+  if(now===420 && !doorRevealed){ doorRevealed=true; revealCard("door","🚪","택배","delivery"); toast("🚪 알림: 07:35 택배 도착 예정 · delivery at 07:35"); }
+  if(!awake && wakeOff && now>=NATURAL){ awake=true; wakeTime=NATURAL; toast("😵 …저절로 깼다. 07:40 · woke by yourself, late"); alarms[0].st="done"; markChip("wake","done"); updateLeaveBtn(); }
+  if(busyUntil && now===busyUntil){ toast("📞 통화 끝 · call ended"); }
+  if(left && now>=DEPART){ trainVerdict(); return; }
+  if(now>=END){ finalize(); return; }
+  // door auto-fail if gone
+  const door=alarms[4];
+  if(left && door.st==="pending" && now>=door.t){ door.st="done"; res.door="bad"; setMark("door","bad"); markChip("door","off"); toast("🚪 부재중 — 택배 반송 · missed delivery"); }
+  // ring check (earliest due)
+  if(!ringing){
+    const due=alarms.filter(a=>a.st==="pending" && a.t<=now && !(a.id==="door"&&left)).sort((x,y)=>x.t-y.t)[0];
+    if(due) ring(due);
+  }
+  render();
+}
+function markChip(id, cls){ document.getElementById("chip_"+id).classList.add(cls); }
+
+/* ---- ringing / sheet ---- */
+const sheetIdle=document.getElementById("sheetIdle"), sheetHead=document.getElementById("sheetHead"), btns=document.getElementById("btns");
+const bDo=document.getElementById("bDo"), bSnz=document.getElementById("bSnz"), bOff=document.getElementById("bOff");
+function idleSheet(){ sheetHead.style.display="none"; btns.style.display="none"; sheetIdle.style.display="block"; }
+function ring(a){
+  ringing=a; paused=true; clearTimeout(timer);
+  document.getElementById("chip_"+a.id).classList.add("ring");
+  sheetIdle.style.display="none"; sheetHead.style.display="flex"; btns.style.display="flex";
+  document.getElementById("shIcon").textContent=a.icon;
+  document.getElementById("shName").textContent=a.ko+" · "+a.en+" — "+fmt(now);
+  const needAwake=(a.id!=="wake") && !awake;
+  const doLabel={wake:"▶<small>일어난다 · get up</small>", pill:"▶<small>먹는다 · take</small>", call:"▶<small>건다 · call now</small>", leave:"▶<small>나간다 · leave</small>", door:"▶<small>문 연다 · open</small>"}[a.id];
+  bDo.innerHTML=needAwake?"😴<small>자는 중 · asleep</small>":doLabel;
+  bDo.disabled=needAwake;
+  const cant9=(a.t+9>END-2)||(a.id==="door"&&doorWaited);
+  bSnz.disabled=cant9;
+  bSnz.innerHTML=cant9?"+9<small>더는 못 미룸 · too late</small>":"+9<small>"+({door:"기다려요 · wait!"}[a.id]||"미루기 · snooze")+"</small>";
+  document.getElementById("shSub").textContent={
+    wake:"오늘이 시작되려 한다 · the day wants to start",
+    pill:"복용 시한 07:20 (늦으면 ⚠) · window till 07:20",
+    call:"통화 6분 · a 6-min call",
+    leave:"역까지 25분 · 25 min to station",
+    door:doorWaited?"두 번은 안 기다린다 · won't wait twice":"문 밖에 누가 있다 · someone's outside"
+  }[a.id];
+}
+function endRing(){
+  if(!ringing) return;
+  document.getElementById("chip_"+ringing.id).classList.remove("ring");
+  ringing=null; idleSheet(); paused=false; render(); loop();
+}
+function log(a,verb){ seq.push(a.icon+verb); }
+
+bSnz.onclick=()=>{ if(!ringing||bSnz.disabled) return;
+  const a=ringing; addGhost(a,a.t); a.t+=9; a.snoozes++; snz++;
+  if(a.id==="door") doorWaited=true;
+  log(a,"+9"); moveChip(a);
+  toast(a.icon+" +9분 → "+fmt(a.t)+(a.id==="door"?" (한 번만 기다림)":""));
+  endRing();
+};
+bOff.onclick=()=>{ if(!ringing) return;
+  const a=ringing; a.st="done"; log(a,"✕"); markChip(a.id,"off");
+  if(a.id==="wake"){ wakeOff=true; toast("⏰ 껐다. 아무도 깨우지 않는다 · alarm off…"); }
+  else if(a.id==="pill"){ res.pill="bad"; setMark("pill","bad"); toast("💊 오늘은 건너뛴다 · skipped"); }
+  else if(a.id==="call"){ res.call="bad"; setMark("call","bad"); toast("📞 안 하기로 했다 · not calling"); }
+  else if(a.id==="leave"){ toast("🚆 알람만 껐다 — 나가기 버튼은 살아있다 · reminder off"); updateLeaveBtn(); }
+  else if(a.id==="door"){ res.door="bad"; setMark("door","bad"); toast("🚪 …발소리가 멀어진다 · footsteps fade"); }
+  endRing();
+};
+bDo.onclick=()=>{ if(!ringing||bDo.disabled) return;
+  const a=ringing; a.st="done"; log(a,"▶"); markChip(a.id,"done");
+  if(a.id==="wake"){
+    awake=true; wakeTime=now;
+    if(now<=COFFEE_BY){ coffeeGiven=true; res.coffee="ok"; revealCard("coffee","☕","여유","calm"); setMark("coffee","ok"); toast("☕ 여유로운 아침 · a calm start"); }
+    else toast("🙂 일어났다 "+fmt(now)+" · up");
+    updateLeaveBtn();
+  }
+  else if(a.id==="pill"){
+    res.pill= now<=440?"ok": now<=465?"warn":"bad";
+    setMark("pill",res.pill); toast("💊 "+(res.pill==="ok"?"제때 복용 ✓":res.pill==="warn"?"늦은 복용 ⚠":"너무 늦었다 ✗"));
+  }
+  else if(a.id==="call"){
+    busyUntil=now+6;
+    res.call= now<=464?"ok": now<=479?"warn":"bad";
+    setMark("call",res.call); toast("📞 통화 시작 (6분) · calling…");
+  }
+  else if(a.id==="leave"){ doLeave(); }
+  else if(a.id==="door"){ res.door="ok"; setMark("door","ok"); toast("🚪📦 받았다 ✓ · got it"); }
+  endRing();
+};
+
+/* ---- leave / train ---- */
+function updateLeaveBtn(){ leaveBtn.style.display=(awake&&!left)?"block":"none"; }
+leaveBtn.onclick=()=>{ if(ringing||!awake||left) return; doLeave(); seq.push("🚶▶"); idleSheet(); };
+function doLeave(){
+  left=true; leaveTime=now; montage=true; updateLeaveBtn();
+  const pill=alarms[1], call=alarms[2], lv=alarms[3];
+  if(lv.st==="pending"){ lv.st="done"; markChip("leave","done"); }
+  if(pill.st==="pending"){ pill.st="done"; res.pill="bad"; setMark("pill","bad"); markChip("pill","off"); toast("💊 약은 집에 남았다 · pill left home"); }
+  if(call.st==="pending"){ call.st="done";
+    if(now<=470){ res.call="warn"; setMark("call","warn"); toast("📞 걸으며 통화 ⚠ · calling while walking"); }
+    else { res.call="bad"; setMark("call","bad"); }
+    markChip("call","done");
+  }
+  toast("🚶 "+fmt(now)+" 출발 — 역까지 25분 · left home");
+}
+function trainVerdict(){
+  res.train= leaveTime<=LEAVEBY?"ok": leaveTime<=466?"warn":"bad";
+  setMark("train",res.train);
+  finalize();
+}
+function finalize(){
+  paused=true; clearTimeout(timer);
+  alarms.forEach(a=>{ if(a.st==="pending"){ a.st="done";
+    if(a.id==="pill"&&res.pill==null){ res.pill="bad"; setMark("pill","bad"); }
+    if(a.id==="call"&&res.call==null){ res.call="bad"; setMark("call","bad"); }
+    if(a.id==="door"&&res.door==null){ res.door="bad"; setMark("door","bad"); }
+  }});
+  if(res.train==null){ res.train= left? (leaveTime<=466?"warn":"bad") :"bad"; setMark("train",res.train); }
+  ["pill","call","door"].forEach(k=>{ if(res[k]==null){ res[k]="bad"; setMark(k,"bad"); } });
+  setTimeout(showResults, 650);
+}
+
+/* ---- results ---- */
+function showResults(){
+  const R=document.getElementById("results");
+  document.getElementById("resRun").textContent=run;
+  const rows=[
+    ["💊 약 · pill", res.pill],["📞 전화 · call", res.call],["🚪 택배 · delivery", res.door],["🚆 기차 · train", res.train],
+    ["☕ 여유 · calm", coffeeGiven?"ok":null]
+  ];
+  document.getElementById("resRows").innerHTML=rows.map(([n,v])=>{
+    const m=v==="ok"?"<span class='mark ok'>✓</span>":v==="warn"?"<span class='mark warn'>⚠</span>":v==="bad"?"<span class='mark bad'>✗</span>":"<span class='mark' style='color:var(--dim)'>—</span>";
+    return `<div class="rrow">${n}${m}</div>`;
+  }).join("");
+  const core=[res.pill,res.call,res.door,res.train];
+  const okN=core.filter(v=>v==="ok").length;
+  const v=document.getElementById("resVerdict");
+  if(okN===4&&coffeeGiven){ v.textContent="✦ 완벽한 아침 · PERFECT MORNING"; v.className="verdict ok"; }
+  else if(okN===4){ v.textContent="✓ 다 해냈다 · ALL DONE"; v.className="verdict ok"; }
+  else if(okN>=2){ v.textContent="⚠ 절반의 아침 · HALF A MORNING"; v.className="verdict warn"; }
+  else { v.textContent="✗ 뒤틀린 아침 · A WARPED MORNING"; v.className="verdict bad"; }
+  const dur=Math.round((Date.now()-t0)/1000);
+  document.getElementById("resStats").innerHTML=
+    `기상 wake: <b>${wakeTime? fmt(wakeTime)+(wakeOff?" (저절로·natural)":"") :"못 일어남 · never"}</b> · +9 ×<b>${snz}</b> · 출발 leave: <b>${leaveTime?fmt(leaveTime):"—"}</b> · 소요 <b>${dur}s</b>`;
+  document.getElementById("seq").textContent= seq.length? "선택 기록 · choices: "+seq.join(" "):"";
+  R.style.display="flex";
+}
+document.getElementById("againBtn").onclick=()=>{ document.getElementById("results").style.display="none"; reset(); paused=false; loop(); };
+document.getElementById("startBtn").onclick=()=>{ document.getElementById("intro").style.display="none"; reset(); paused=false; loop(); };
+</script>
+</body>
+</html>

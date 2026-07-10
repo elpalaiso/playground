@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>부식 · CORROSION · Claude build</title>
+<script src="../build-meta.js" defer></script>
+<style>
+  /* CORROSION — Claude 해석. ASCII = 메커니즘 (문서의 글자가 곧 보호 대상·지형).
+     완전 정보: 다음 턴에 먹힐 칸(▒)이 항상 보이고, 내 수마다 즉시 재계산된다.
+     CLI 미학: 터미널 인광, 고대비, 큰 글자 (18차 리스크 반영). 게임판은 라틴 대문자 고정(전각 회피). */
+  :root{
+    --bg:#0b0f0b; --ph:#b8f0b8; --dim:#4f6f4f; --line:#274027;
+    --bad:#ff7a66; --warn:#ffd166; --name:#7fd4ff; --wall:#e8f4e8; --gold:#ffcf7a;
+    --build-meta-color:var(--dim);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html{ background:var(--bg); }
+  body{ background:var(--bg); color:var(--ph);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Cascadia Mono",monospace;
+    font-variant-numeric:tabular-nums; overscroll-behavior:none; }
+  #app{ max-width:480px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column;
+        padding:calc(8px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)); }
+
+  /* 상태줄 */
+  #top{ border:1px solid var(--line); padding:6px 8px; font-size:12px; color:var(--dim);
+        display:flex; justify-content:space-between; gap:6px; white-space:nowrap; }
+  #top b{ color:var(--ph); font-weight:700; }
+  #top .warnb{ color:var(--warn); }
+  #names{ display:flex; justify-content:space-between; padding:6px 8px; border:1px solid var(--line);
+          border-top:none; font-size:13px; letter-spacing:1px; }
+  #names span{ color:var(--name); font-weight:700; }
+  #names span.hurt{ color:var(--warn); }
+  #names span.dead{ color:var(--bad); text-decoration:line-through; opacity:.6; }
+
+  /* 보드 */
+  #boardWrap{ margin-top:10px; display:flex; justify-content:center; }
+  #board{ display:grid; grid-template-columns:repeat(9,1fr); gap:2px; width:100%; max-width:400px; }
+  .cell{ aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+         font-size:clamp(17px,5.6vw,24px); font-weight:700; border-radius:2px;
+         background:#0e130e; color:var(--ph); user-select:none; position:relative; }
+  .cell.empty{ color:var(--dim); }
+  .cell.name{ color:var(--name); }
+  .cell.corrupt{ background:#2a0f0b; color:var(--bad); }
+  .cell.predict::after{ content:""; position:absolute; inset:0; border:2px dashed var(--warn); border-radius:2px; }
+  .cell.wall{ background:#1c241c; color:var(--wall); }
+  .cell.sanct{ box-shadow:inset 0 0 0 2px var(--gold); }
+  .cell.flash{ animation:fl 300ms linear; }
+  @keyframes fl{ 0%{ filter:brightness(2.4);} 100%{ filter:none;} }
+  .cell.targetable{ cursor:pointer; }
+  .cell.justAte{ animation:ate 360ms linear; }
+  @keyframes ate{ 0%{ filter:brightness(3); } 100%{ filter:none; } }
+
+  #caption{ margin-top:8px; min-height:34px; font-size:12px; color:var(--dim); line-height:1.55;
+            border-left:2px solid var(--line); padding-left:8px; }
+  #caption b{ color:var(--warn); }
+
+  /* 도구 막대 */
+  #tools{ margin-top:10px; display:flex; gap:6px; }
+  .tool{ flex:1; min-height:56px; background:none; border:1px solid var(--ph); border-radius:4px;
+         color:var(--ph); font-family:inherit; font-size:15px; font-weight:700; }
+  .tool small{ display:block; font-size:10.5px; color:var(--dim); margin-top:2px; }
+  .tool.sel{ background:var(--ph); color:var(--bg); }
+  .tool.sel small{ color:#2a3a2a; }
+  .tool:disabled{ opacity:.32; border-style:dashed; }
+  .tool:focus-visible{ outline:2px solid var(--name); outline-offset:2px; }
+  #specials{ margin-top:6px; display:flex; gap:6px; }
+  #specials .tool{ min-height:48px; border-color:var(--gold); color:var(--gold); }
+  #specials .tool.sel{ background:var(--gold); color:var(--bg); }
+
+  /* 오버레이 */
+  .ovl{ position:fixed; inset:0; background:rgba(6,9,6,.96); z-index:10; overflow-y:auto; display:flex; }
+  .panel{ margin:auto; width:min(92vw,430px); border:1px solid var(--ph); border-radius:4px;
+          padding:20px 16px; background:var(--bg); }
+  .tag{ font-size:11px; color:var(--dim); display:flex; justify-content:space-between; letter-spacing:1px; }
+  h1{ font-size:24px; margin:10px 0 4px; letter-spacing:2px; }
+  .sub{ font-size:12px; color:var(--dim); }
+  .qbox{ border:1px dashed var(--warn); border-radius:2px; padding:10px; margin:14px 0;
+         font-size:14px; font-weight:700; line-height:1.6; color:var(--ph); }
+  .qbox small{ display:block; color:var(--dim); font-weight:400; font-size:11.5px; margin-top:4px; }
+  .rules{ font-size:12.5px; color:var(--dim); line-height:1.9; margin-bottom:14px; }
+  .rules b{ color:var(--ph); }
+  .wide{ width:100%; min-height:54px; background:var(--ph); color:var(--bg); border:none; border-radius:4px;
+         font-family:inherit; font-size:16px; font-weight:800; letter-spacing:1px; margin-top:6px; }
+  .wide:focus-visible{ outline:2px solid var(--name); outline-offset:2px; }
+  #langBtn{ background:none; border:1px solid var(--line); color:var(--ph); border-radius:3px;
+            font-family:inherit; font-size:11px; font-weight:700; padding:3px 9px; }
+
+  /* 보급 3택 */
+  .card{ width:100%; text-align:left; background:none; border:1px solid var(--ph); border-radius:4px;
+         color:var(--ph); font-family:inherit; padding:12px; margin-top:8px; min-height:56px; }
+  .card b{ font-size:15px; }
+  .card small{ display:block; font-size:11.5px; color:var(--dim); margin-top:3px; line-height:1.5; }
+  .card.rare{ border-color:var(--gold); }
+  .card.rare b{ color:var(--gold); }
+  .card:active{ background:var(--ph); color:var(--bg); }
+  .card:focus-visible{ outline:2px solid var(--name); outline-offset:2px; }
+
+  .score{ border-top:1px solid var(--line); margin-top:12px; padding-top:10px; font-size:12.5px;
+          color:var(--dim); line-height:1.9; }
+  .score b{ color:var(--ph); }
+  .score .ok{ color:var(--name); } .score .no{ color:var(--bad); }
+  .qq{ border-top:1px dashed var(--line); margin-top:10px; padding-top:10px; font-size:12px;
+       line-height:1.9; color:var(--ph); }
+  #toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(96px + env(safe-area-inset-bottom));
+          background:#101710; border:1px solid var(--line); color:var(--ph); border-radius:4px;
+          padding:8px 14px; font-size:12.5px; font-weight:700; opacity:0; transition:opacity .25s;
+          z-index:9; pointer-events:none; max-width:88vw; text-align:center; line-height:1.5; }
+  @media (prefers-reduced-motion: reduce){ .cell.flash,.cell.justAte{ animation:none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <span>TURN <b id="tTurn">01</b></span>
+    <span class="warnb">▒×<b id="tRate">1</b>/턴</span>
+    <span># <b id="tWall">5</b></span>
+    <span>✚ <b id="tPurge">1</b></span>
+    <span id="tRun">R1</span>
+  </div>
+  <div id="names"></div>
+  <div id="boardWrap"><div id="board" role="grid"></div></div>
+  <div id="caption"></div>
+  <div id="tools">
+    <button class="tool" id="toolWall"># <span id="wallN">5</span><small id="lblWall"></small></button>
+    <button class="tool" id="toolPurge">✚ <span id="purgeN">1</span><small id="lblPurge"></small></button>
+    <button class="tool" id="toolPass">▸<small id="lblPass"></small></button>
+  </div>
+  <div id="specials"></div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<!-- 표지 -->
+<div class="ovl" id="cover">
+  <div class="panel">
+    <div class="tag"><span>TOY 07 · CLAUDE BUILD · ASCII-NATIVE</span><button id="langBtn">EN</button></div>
+    <h1>부식 <span style="color:var(--dim);font-size:14px">CORROSION</span></h1>
+    <div class="sub" id="cvSub"></div>
+    <div class="qbox" id="cvQ"></div>
+    <div class="rules" id="cvRules"></div>
+    <button class="wide" id="startBtn"></button>
+  </div>
+</div>
+
+<!-- 보급 -->
+<div class="ovl" id="supply" hidden>
+  <div class="panel">
+    <div class="tag"><span id="spTag"></span><span class="mono" id="spTurn"></span></div>
+    <h1 style="font-size:18px" id="spTitle"></h1>
+    <div id="spCards"></div>
+  </div>
+</div>
+
+<!-- 종료 -->
+<div class="ovl" id="end" hidden>
+  <div class="panel">
+    <div class="tag"><span id="edTag"></span><span id="edRun"></span></div>
+    <h1 id="edTitle"></h1>
+    <div class="rules" id="edBody"></div>
+    <div class="score" id="edScore"></div>
+    <div class="qq" id="edQQ"></div>
+    <button class="wide" id="againBtn"></button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ═══ 순수 엔진 (시뮬 추출 대상) ═══ */
+const COLS=9, ROWS=12;
+/* '#' = 접힌 자국 (기존 방벽 — 오염 불통과) */
+const DOC=[
+ "SURVIVOR.",
+ "RECORD...",
+ ".......##",
+ "DAY.41...",
+ "SECTOR.7.",
+ ".........",
+ "ANNA.THEO",
+ ".........",
+ "JUNO.MILO",
+ ".........",
+ "VERA.#...",
+ "SIGNAL#.."
+];
+const SEED={r:11,c:8};
+const SEED2={r:0,c:8,turn:5};
+const MAXTURN=20;
+const NAMES=[
+ {name:"ANNA", cells:[[6,0],[6,1],[6,2],[6,3]]},
+ {name:"THEO", cells:[[6,5],[6,6],[6,7],[6,8]]},
+ {name:"JUNO", cells:[[8,0],[8,1],[8,2],[8,3]]},
+ {name:"MILO", cells:[[8,5],[8,6],[8,7],[8,8]]},
+ {name:"VERA", cells:[[10,0],[10,1],[10,2],[10,3]]}
+];
+function spreadRate(turn){ return turn<=4?1: turn<=9?2:3; }
+function idx(r,c){ return r*COLS+c; }
+function makeBoard(){
+  const b=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const raw=DOC[r][c];
+    if(raw==="#") b.push({ch:null, corrupt:false, wall:true, sanct:false});
+    else b.push({ch: raw==="."?null:raw, corrupt:false, wall:false, sanct:false});
+  }
+  return b;
+}
+/* 확산 후보: 오염 인접 4방의 비오염·비방벽·비성역 칸.
+   우선순위: 글자 우선 → 행 작은 순 → 열 작은 순. n개 선택. 결정론. */
+function spreadPicks(b,n){
+  const cand=new Map();
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(!b[idx(r,c)].corrupt) continue;
+    [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([rr,cc])=>{
+      if(rr<0||rr>=ROWS||cc<0||cc>=COLS) return;
+      const t=b[idx(rr,cc)];
+      if(t.corrupt||t.wall||t.sanct) return;
+      cand.set(idx(rr,cc),{r:rr,c:cc,letter:!!t.ch});
+    });
+  }
+  return [...cand.values()]
+    .sort((a,z)=> (z.letter-a.letter)||(a.r-z.r)||(a.c-z.c))
+    .slice(0,n).map(o=>idx(o.r,o.c));
+}
+function containment(b){ return spreadPicks(b,999).length===0; }
+function nameState(b,nm){
+  const alive=nm.cells.filter(([r,c])=>!b[idx(r,c)].corrupt).length;
+  return alive===nm.cells.length?"ok": alive*2>=nm.cells.length?"hurt":"dead";
+}
+/* ═══ /순수 엔진 ═══ */
+
+const L={
+ko:{
+  sub:"기록 문서 · 오염 봉쇄 작전",
+  q:"검증 질문<br>“다음 턴에 먹힐 곳이 <b>항상 보인다</b> — 막는 손맛이 재미인가?”<small>The next bite is always visible — is blocking it fun?</small>",
+  rules:"오염 ▓ 이 문서의 글자를 먹는다. 점선 ▒ = <b>다음 턴에 먹힐 곳</b> (당신의 수마다 즉시 재계산).<br>한 턴에 한 수: <b>#방벽</b>을 세우거나 <b>✚정화</b>하거나 지나간다. 접힌 자국 #은 오염이 못 넘는다.<br>먹힌 글자는 돌아오지 않는다. <b>20턴 안에 오염을 완전히 가두면 승리.</b> 이름 다섯을 지켜라 — 문서의 6할이 무너지면 끝이다.",
+  start:"작전 개시", again:"⟳ 새 문서",
+  lblWall:"방벽 · 빈 칸/글자 위", lblPurge:"정화 · 오염 제거", lblPass:"관망",
+  demoToast:"관측: 오염이 1칸 먹었다 — 이제 당신 차례. ▒ = 다음 표적",
+  noStock:"재고 없음", cantThere:"그곳엔 놓을 수 없다",
+  secondFire:"⚠ 2차 발화 — 반대편 모서리!",
+  frozen:"❄ 확산이 얼어붙었다 — 이번 턴 오염이 멈춘다",
+  supplyTag:"보급 투하", supplyTitle:"하나를 선택하라", turnLabel:"TURN",
+  cards:{
+    wall2:["방벽 +2","기본 봉쇄 재료"],
+    purge1:["정화 +1","오염 1칸을 지운다 (글자는 못 살림)"],
+    line:["═ 방벽 라인","가로 3칸을 한 수에 봉쇄 [희귀]"],
+    freeze:["❄ 동결","다음 확산 1턴 정지 [희귀]"],
+    sanct:["⌂ 성역","이름 하나를 영구 보호 [희귀]"],
+    mega:["✚✚ 대정화","오염 2×2 제거 [희귀]"]
+  },
+  useLine:"═ 라인: 시작 칸 탭 (가로 3칸)", useSanct:"⌂ 성역: 지킬 이름의 글자를 탭", useMega:"✚✚: 오염 구역 탭 (2×2)",
+  captions:[
+    "이 문서는 대피 기록이다. 라틴 활자로 인쇄되어 있다.",
+    "이름 다섯 — 아직 구조 신호를 기다리는 사람들.",
+    "오염은 글자를 우선해서 먹는다. 기록일수록 위험하다.",
+    "봉쇄가 완성되는 순간, 남은 글자가 살아남는다."
+  ],
+  winTitle:"봉쇄 완료", winTag:"CONTAINMENT REPORT",
+  winBody:"오염은 더 갈 곳이 없다. 문서의 남은 부분은 살아남았다.",
+  loseTitle:"기록 소실", loseTag:"LOSS REPORT",
+  loseBody:"이름이 전부 지워졌다. 문서는 이제 아무도 기억하지 않는다.",
+  score:(names,pct,tools,turn)=>"지킨 이름 <b>"+names+"</b>/5 · 남은 글자 <b>"+pct+"%</b> · 봉쇄 턴 <b>"+turn+"</b> · 희귀 도구 발견 <b>"+tools+"</b>/4",
+  nameList:(ok,dead)=> ok.length? "생존 명단: <span class='ok'>"+ok.join(" ")+"</span>"+(dead.length?" · 소실: <span class='no'>"+dead.join(" ")+"</span>":"") : "<span class='no'>생존자 없음</span>",
+  qq:"Q1. 한 번 더? — 이유는<br>Q2. 수를 놓기 전 ▒가 바뀌는 순간, 계획이 즐거웠나<br>Q3. 보급 3택 — <b>이 뽑기를 위해 광고 한 편 볼 만한가?</b>",
+  note:"세션 안에서만 기억된다"
+},
+en:{
+  sub:"A record sheet · containment operation",
+  q:"The question<br>“The next bite is <b>always visible</b> — is blocking it fun?”<small>다음 턴에 먹힐 곳이 항상 보인다 — 막는 손맛이 재미인가?</small>",
+  rules:"Corrosion ▓ eats the letters of a document. Dashed ▒ = <b>next turn's bites</b> (recomputed instantly after your every move).<br>One move per turn: build a <b>#wall</b>, <b>✚purge</b>, or pass. Paper folds # cannot be crossed.<br>Eaten letters never return. <b>Fully enclose the corrosion within 20 turns to win.</b> Protect the five names — lose 60% of the sheet and it's over.",
+  start:"BEGIN OPERATION", again:"⟳ NEW SHEET",
+  lblWall:"wall · any clean cell", lblPurge:"purge · remove corrosion", lblPass:"pass",
+  demoToast:"Observed: corrosion ate 1 cell — your move now. ▒ = next targets",
+  noStock:"out of stock", cantThere:"cannot place there",
+  secondFire:"⚠ SECOND FLARE — opposite corner!",
+  frozen:"❄ Spread frozen — corrosion halts this turn",
+  supplyTag:"SUPPLY DROP", supplyTitle:"CHOOSE ONE", turnLabel:"TURN",
+  cards:{
+    wall2:["Walls +2","basic containment stock"],
+    purge1:["Purge +1","erase 1 corroded cell (letters stay lost)"],
+    line:["═ Wall line","seal 3 cells across in one move [RARE]"],
+    freeze:["❄ Freeze","spread skips one turn [RARE]"],
+    sanct:["⌂ Sanctuary","permanently protect one name [RARE]"],
+    mega:["✚✚ Mass purge","clear a 2×2 of corrosion [RARE]"]
+  },
+  useLine:"═ line: tap start cell (3 across)", useSanct:"⌂ sanctuary: tap a letter of the name", useMega:"✚✚: tap corroded area (2×2)",
+  captions:[
+    "This sheet is an evacuation record, printed in Latin type.",
+    "Five names — people still waiting for the rescue signal.",
+    "Corrosion prefers letters. Records are what it hunts.",
+    "The moment containment completes, what remains survives."
+  ],
+  winTitle:"CONTAINMENT COMPLETE", winTag:"CONTAINMENT REPORT",
+  winBody:"The corrosion has nowhere left to go. What remains of the sheet survives.",
+  loseTitle:"RECORD LOST", loseTag:"LOSS REPORT",
+  loseBody:"Every name is erased. No one will remember this sheet.",
+  score:(names,pct,tools,turn)=>"Names kept <b>"+names+"</b>/5 · letters left <b>"+pct+"%</b> · contained on turn <b>"+turn+"</b> · rare tools found <b>"+tools+"</b>/4",
+  nameList:(ok,dead)=> ok.length? "Survivors: <span class='ok'>"+ok.join(" ")+"</span>"+(dead.length?" · lost: <span class='no'>"+dead.join(" ")+"</span>":"") : "<span class='no'>no survivors</span>",
+  qq:"Q1. One more — why?<br>Q2. Watching ▒ recompute before you commit — was planning fun?<br>Q3. The 3-card drop — <b>worth watching an ad for?</b>",
+  note:"remembered only within this session"
+}};
+
+let lang="ko", run=0, codexTools=new Set(), S=null;
+const $=id=>document.getElementById(id);
+const t=k=>L[lang][k];
+const reduced=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+let toastTm;
+function toast(m){ const e=$("toast"); e.textContent=m; e.style.opacity=1;
+  clearTimeout(toastTm); toastTm=setTimeout(()=>e.style.opacity=0,2200); }
+
+function newState(){
+  return { b:makeBoard(), turn:1, wall:5, purge:1, specials:{}, tool:"wall",
+           frozen:false, fired2:false, over:false, letters0:0, capIdx:0, startAt:Date.now() };
+}
+
+/* ─ 렌더 ─ */
+const boardEl=$("board");
+let cellEls=[];
+function buildBoard(){
+  boardEl.replaceChildren(); cellEls=[];
+  for(let i=0;i<ROWS*COLS;i++){
+    const d=document.createElement("button");
+    d.className="cell"; d.setAttribute("role","gridcell");
+    d.onclick=()=>tapCell(i);
+    boardEl.append(d); cellEls.push(d);
+  }
+}
+function isNameCell(i){ return NAMES.some(n=>n.cells.some(([r,c])=>idx(r,c)===i)); }
+function render(){
+  const picks=new Set(S.frozen?[]:spreadPicks(S.b,spreadRate(S.turn)));
+  S.b.forEach((cell,i)=>{
+    const el=cellEls[i];
+    el.className="cell";
+    let txt;
+    if(cell.corrupt){ txt="▓"; el.classList.add("corrupt"); }
+    else if(cell.wall){ txt="#"; el.classList.add("wall"); }
+    else if(cell.ch){ txt=cell.ch; if(isNameCell(i)) el.classList.add("name"); }
+    else { txt="·"; el.classList.add("empty"); }
+    if(cell.sanct) el.classList.add("sanct");
+    if(picks.has(i)) el.classList.add("predict");
+    el.textContent=txt;
+  });
+  $("tTurn").textContent=String(S.turn).padStart(2,"0");
+  $("tRate").textContent=S.frozen?0:spreadRate(S.turn);
+  $("tWall").textContent=S.wall; $("wallN").textContent=S.wall;
+  $("tPurge").textContent=S.purge; $("purgeN").textContent=S.purge;
+  $("tRun").textContent="R"+run;
+  const nm=$("names"); nm.replaceChildren();
+  NAMES.forEach(n=>{ const s=document.createElement("span");
+    s.textContent=n.name; const st=nameState(S.b,n);
+    if(st==="hurt")s.classList.add("hurt"); if(st==="dead")s.classList.add("dead");
+    nm.append(s); });
+  ["toolWall","toolPurge","toolPass"].forEach(id=>$(id).classList.remove("sel"));
+  if(S.tool==="wall")$("toolWall").classList.add("sel");
+  if(S.tool==="purge")$("toolPurge").classList.add("sel");
+  $("toolWall").disabled=S.wall<=0; $("toolPurge").disabled=S.purge<=0;
+  renderSpecials();
+}
+function renderSpecials(){
+  const box=$("specials"); box.replaceChildren();
+  Object.entries(S.specials).forEach(([k,n])=>{
+    if(n<=0) return;
+    const b=document.createElement("button");
+    b.className="tool"+(S.tool===k?" sel":"");
+    b.innerHTML={line:"═",freeze:"❄",sanct:"⌂",mega:"✚✚"}[k]+" <span>"+n+"</span>";
+    b.onclick=()=>{ if(k==="freeze"){ useFreeze(); } else { S.tool=k;
+      toast({line:t("useLine"),sanct:t("useSanct"),mega:t("useMega")}[k]); render(); } };
+    box.append(b);
+  });
+}
+
+/* ─ 진행 ─ */
+function captionStep(){
+  const caps=t("captions");
+  if(S.capIdx<caps.length){ $("caption").textContent=caps[S.capIdx]; S.capIdx++; }
+}
+function doSpread(announce){
+  if(S.frozen){ S.frozen=false; toast(t("frozen")); render(); return []; }
+  const picks=spreadPicks(S.b,spreadRate(S.turn));
+  picks.forEach(i=>{ S.b[i].corrupt=true; S.b[i].wall=false; });
+  render();
+  picks.forEach(i=>cellEls[i].classList.add("justAte"));
+  return picks;
+}
+function endTurnChecks(){
+  // 2차 발화
+  if(!S.fired2 && S.turn===SEED2.turn){ S.fired2=true;
+    S.b[idx(SEED2.r,SEED2.c)].corrupt=true; toast(t("secondFire")); }
+  // 승패 — 봉쇄 승리는 2차 발화 이후에만 성립 (잔불 감시)
+  const deadAll=NAMES.every(n=>nameState(S.b,n)==="dead");
+  const left=S.b.filter(c=>c.ch&&!c.corrupt).length;
+  if(deadAll || left<S.letters0*0.4){ finish(false); return true; }
+  if(containment(S.b)){
+    if(S.fired2){ finish(true); return true; }
+    if(!S.watchToast){ S.watchToast=true;
+      toast(lang==="ko"?"…봉쇄됐다. 그런데 반대편에서 얼룩이 배어 나온다 — 감시를 유지하라":"…contained. But a stain is seeping through the far side — stay watchful"); }
+  }
+  if(S.turn>=MAXTURN){ finish(false); return true; }
+  return false;
+}
+function advanceTurn(){
+  doSpread();
+  if(endTurnChecks()) return;
+  S.turn++;
+  if((S.turn-1)%3===0 && S.turn>1) openSupply();
+  captionStep();
+  render();
+}
+
+/* ─ 입력 ─ */
+function tapCell(i){
+  if(!S||S.over) return;
+  const cell=S.b[i];
+  const commit=ok=>{ if(!ok){ toast(t("cantThere")); return false; }
+    render(); advanceTurn(); return true; };
+  if(S.tool==="wall"){
+    if(S.wall<=0){ toast(t("noStock")); return; }
+    if(cell.corrupt||cell.wall) return commit(false);
+    cell.wall=true; S.wall--; commit(true);
+  }else if(S.tool==="purge"){
+    if(S.purge<=0){ toast(t("noStock")); return; }
+    if(!cell.corrupt) return commit(false);
+    cell.corrupt=false; cell.ch=null; S.purge--; commit(true);
+  }else if(S.tool==="line"){
+    const r=Math.floor(i/COLS), c=i%COLS;
+    if(c>COLS-3) return commit(false);
+    const trio=[i,i+1,i+2];
+    if(trio.some(j=>S.b[j].corrupt)) return commit(false);
+    trio.forEach(j=>{ S.b[j].wall=true; });
+    S.specials.line--; S.tool="wall"; commit(true);
+  }else if(S.tool==="sanct"){
+    const nm=NAMES.find(n=>n.cells.some(([r,c])=>idx(r,c)===i));
+    if(!nm) return commit(false);
+    if(nm.cells.some(([r,c])=>S.b[idx(r,c)].corrupt)) return commit(false);
+    nm.cells.forEach(([r,c])=>{ S.b[idx(r,c)].sanct=true; });
+    S.specials.sanct--; S.tool="wall"; commit(true);
+  }else if(S.tool==="mega"){
+    const r=Math.floor(i/COLS), c=i%COLS;
+    let hit=false;
+    for(let dr=0;dr<2;dr++)for(let dc=0;dc<2;dc++){
+      const rr=r+dr, cc=c+dc;
+      if(rr<ROWS&&cc<COLS&&S.b[idx(rr,cc)].corrupt){ S.b[idx(rr,cc)].corrupt=false; S.b[idx(rr,cc)].ch=null; hit=true; }
+    }
+    if(!hit) return commit(false);
+    S.specials.mega--; S.tool="wall"; commit(true);
+  }
+}
+function useFreeze(){
+  if(S.specials.freeze<=0) return;
+  S.specials.freeze--; S.frozen=true;
+  render(); advanceTurn();
+}
+$("toolWall").onclick=()=>{ S.tool="wall"; render(); };
+$("toolPurge").onclick=()=>{ S.tool="purge"; render(); };
+$("toolPass").onclick=()=>{ if(!S||S.over) return; advanceTurn(); };
+
+/* ─ 보급 (갓챠 3택) ─ */
+const CARD_POOL=[
+ {k:"wall2", rare:false, w:5}, {k:"purge1", rare:false, w:4},
+ {k:"line", rare:true, w:2}, {k:"freeze", rare:true, w:2},
+ {k:"sanct", rare:true, w:1}, {k:"mega", rare:true, w:2}
+];
+function draw3(){
+  const bag=[]; CARD_POOL.forEach(c=>{ for(let i=0;i<c.w;i++) bag.push(c); });
+  const out=[]; const used=new Set();
+  while(out.length<3){
+    const pick=bag[Math.floor(Math.random()*bag.length)];
+    if(used.has(pick.k)) continue;
+    used.add(pick.k); out.push(pick);
+  }
+  return out;
+}
+function openSupply(){
+  const box=$("spCards"); box.replaceChildren();
+  $("spTag").textContent=t("supplyTag");
+  $("spTurn").textContent=t("turnLabel")+" "+String(S.turn).padStart(2,"0");
+  $("spTitle").textContent=t("supplyTitle");
+  draw3().forEach(c=>{
+    const [nm,desc]=t("cards")[c.k];
+    const b=document.createElement("button");
+    b.className="card"+(c.rare?" rare":"");
+    b.innerHTML="<b>"+nm+"</b><small>"+desc+"</small>";
+    b.onclick=()=>{
+      if(c.k==="wall2") S.wall+=2;
+      else if(c.k==="purge1") S.purge+=1;
+      else { S.specials[c.k]=(S.specials[c.k]||0)+1; codexTools.add(c.k); }
+      $("supply").hidden=true; render();
+    };
+    box.append(b);
+  });
+  $("supply").hidden=false;
+}
+
+/* ─ 종료 ─ */
+function finish(won){
+  S.over=true;
+  const okNames=NAMES.filter(n=>nameState(S.b,n)!=="dead").map(n=>n.name);
+  const deadNames=NAMES.filter(n=>nameState(S.b,n)==="dead").map(n=>n.name);
+  const left=S.b.filter(c=>c.ch&&!c.corrupt).length;
+  const pct=Math.round(left/S.letters0*100);
+  $("edTag").textContent=won?t("winTag"):t("loseTag");
+  $("edRun").textContent="R"+run+" · "+Math.round((Date.now()-S.startAt)/1000)+"s";
+  $("edTitle").textContent=won?t("winTitle"):t("loseTitle");
+  $("edBody").innerHTML=(won?t("winBody"):t("loseBody"))+"<br><br>"+t("nameList")(okNames,deadNames);
+  $("edScore").innerHTML=t("score")(okNames.length,pct,codexTools.size,S.turn)+"<br><span style='color:var(--dim)'>"+t("note")+"</span>";
+  $("edQQ").innerHTML=t("qq");
+  $("againBtn").textContent=t("again");
+  setTimeout(()=>{ $("end").hidden=false; },550);
+}
+
+/* ─ 시작 ─ */
+function startRun(){
+  run++; S=newState();
+  S.letters0=S.b.filter(c=>c.ch).length;
+  S.b[idx(SEED.r,SEED.c)].corrupt=true;
+  buildBoard(); render(); captionStep();
+  // 콜드 오픈: 자동 1회 확산 시연 (턴 소모 없음)
+  setTimeout(()=>{ const picks=spreadPicks(S.b

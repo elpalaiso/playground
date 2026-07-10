@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>심연은 아래로만 읽힌다 · THE DESCENT · Claude build</title>
+<script src="../build-meta.js" defer></script>
+<style>
+  /* THE DESCENT — Claude 해석.
+     스크롤 = 하강(층 단위 비가역) · 귀환 비용 = 깊이 + 무게 · 봉인 유물은 생환해야 개봉.
+     경쟁 빌드 규칙에 따라 아트 자유 — 깊이에 따라 어두워지는 지면. */
+  :root{
+    --ink:#e8e6df; --dim:#8f8d85; --line:rgba(232,230,223,.22);
+    --air:#7fd4c1; --deep:#b48cf2; --bad:#ef7a70; --gold:#e8c268; --act:#85b6ff;
+    --paper0:#2e2b26; /* 지표 */
+    --build-meta-color:var(--dim);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html{ background:#151310; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    color:var(--ink); background:var(--paper0); font-size:16px; line-height:1.55;
+    overscroll-behavior-y:none;
+  }
+  .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-variant-numeric:tabular-nums; }
+
+  /* ── HUD (상단 고정) ── */
+  #hud{ position:fixed; top:0; left:0; right:0; z-index:5; background:rgba(21,19,16,.93);
+        border-bottom:1px solid var(--line); padding:8px 12px calc(8px); }
+  #hud .row{ max-width:480px; margin:0 auto; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .stat{ font-size:12px; color:var(--dim); }
+  .stat b{ font-size:19px; color:var(--ink); font-weight:800; }
+  .stat.air b{ color:var(--air); }
+  .stat.cost b{ color:var(--gold); }
+  .flash b{ animation:st 400ms linear; }
+  @keyframes st{ 0%{ filter:brightness(2.2);} 100%{ filter:none;} }
+
+  /* ── 본문 (수직 갱도) ── */
+  #shaft{ max-width:480px; margin:0 auto; padding:64px 16px 132px; }
+  .layer{ padding:26px 0 8px; }
+  .depthTag{ font-size:12px; color:var(--dim); letter-spacing:2px; margin-bottom:10px; }
+  .item{ border:1px solid var(--line); border-radius:4px; padding:12px; margin:10px 0; }
+  .item .t{ font-size:16px; font-weight:700; }
+  .item .d{ font-size:12px; color:var(--dim); margin-top:2px; line-height:1.6; }
+  .item .btns{ display:flex; gap:8px; margin-top:10px; }
+  .ibtn{ flex:1; min-height:46px; background:none; border:1px solid var(--ink); border-radius:4px;
+         color:var(--ink); font-size:14px; font-weight:700; padding:4px 8px; }
+  .ibtn small{ display:block; font-size:11px; color:var(--dim); font-weight:600; }
+  .ibtn:active{ background:var(--ink); color:#151310; }
+  .ibtn:disabled{ opacity:.34; border-style:dashed; }
+  .ibtn:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+  .item.done{ opacity:.55; }
+  .item.missed{ opacity:.3; }
+  .item.missed .t::after{ content:" — 지나쳤다"; font-size:12px; color:var(--dim); font-weight:600; }
+  html[lang="en"] .item.missed .t::after{ content:" — passed by"; }
+  .item.artifact{ border-color:var(--deep); }
+  .item.artifact .t{ color:var(--deep); }
+  .item.water .t{ color:var(--air); }
+  .item.legacy{ border-color:var(--gold); }
+  .item.legacy .t{ color:var(--gold); }
+  .verse{ font-size:14px; color:var(--dim); font-style:normal; padding:8px 2px; line-height:1.8;
+          border-left:2px solid var(--line); padding-left:12px; margin:12px 0; }
+
+  /* 층 경계 (확정선) */
+  .boundary{ text-align:center; padding:34px 0 6px; color:var(--dim); font-size:12px; letter-spacing:3px; }
+  .boundary .mark{ font-size:16px; letter-spacing:8px; display:block; margin-top:6px; }
+
+  /* ── 로프 (하단 고정) ── */
+  #ropeBar{ position:fixed; left:0; right:0; bottom:0; z-index:5; background:rgba(21,19,16,.95);
+            border-top:1px solid var(--line); padding:10px 16px calc(12px + env(safe-area-inset-bottom)); }
+  #ropeBar .inner{ max-width:480px; margin:0 auto; }
+  #ropeBtn{ width:100%; min-height:58px; background:none; border:1.5px solid var(--gold); border-radius:6px;
+            color:var(--gold); font-size:16px; font-weight:800; position:relative; overflow:hidden; }
+  #ropeBtn small{ display:block; font-size:11px; font-weight:600; color:var(--dim); }
+  #ropeBtn .fill{ position:absolute; inset:0; width:0%; background:rgba(232,194,104,.25); }
+  #ropeBtn:disabled{ border-color:var(--bad); color:var(--bad); }
+  #ropeBtn:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+  #ropeHint{ text-align:center; font-size:11px; color:var(--dim); margin-top:6px; }
+
+  /* ── 오버레이 ── */
+  .ovl{ position:fixed; inset:0; z-index:10; background:#151310; overflow-y:auto; }
+  .ovl .inner{ max-width:480px; margin:0 auto; min-height:100%; display:flex; flex-direction:column;
+               justify-content:center; padding:28px 18px calc(28px + env(safe-area-inset-bottom)); }
+  .panel{ border:1px solid var(--line); border-radius:6px; padding:24px 18px; }
+  .tag{ font-size:12px; color:var(--dim); font-weight:700; display:flex; justify-content:space-between; letter-spacing:1px; }
+  h1{ font-size:26px; font-weight:800; margin:12px 0 4px; line-height:1.35; }
+  .sub{ font-size:12px; color:var(--dim); }
+  .qbox{ border:1px dashed var(--act); border-radius:4px; padding:10px 12px; margin:16px 0; font-size:15px; font-weight:700; line-height:1.6; }
+  .qbox small{ display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:4px; }
+  .rules{ font-size:13px; color:var(--dim); line-height:1.9; margin-bottom:14px; }
+  .wide{ width:100%; min-height:56px; background:var(--ink); color:#151310; border:none; border-radius:6px;
+         font-size:16px; font-weight:800; margin-top:8px; }
+  .wide:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+  .ghostbtn{ width:100%; min-height:46px; background:none; color:var(--dim); border:1px solid var(--line);
+             border-radius:6px; font-size:13px; font-weight:700; margin-top:8px; }
+  #langBtn{ background:none; border:1px solid var(--line); border-radius:4px; color:var(--ink);
+            font-size:12px; font-weight:700; padding:3px 10px; }
+  .bonusNote{ font-size:12px; color:var(--gold); margin-top:10px; line-height:1.7; }
+
+  /* 개봉 카드 */
+  .sealed{ border:1px solid var(--deep); border-radius:6px; padding:14px; margin:10px 0; cursor:pointer; }
+  .sealed .name{ font-size:16px; font-weight:800; color:var(--deep); }
+  .sealed .meta{ font-size:12px; color:var(--dim); margin-top:3px; line-height:1.6; }
+  .sealed.opened{ border-color:var(--gold); animation:po 300ms linear; }
+  .sealed.opened .name{ color:var(--gold); }
+  .sealed .newmark{ color:var(--air); font-weight:800; font-size:11px; letter-spacing:1px; }
+  @keyframes po{ 0%{ transform:scale(.96); filter:brightness(2);} 100%{ transform:none; filter:none;} }
+  .score{ font-size:13px; color:var(--dim); line-height:1.9; border-top:1px solid var(--line); margin-top:12px; padding-top:10px; }
+  .score b{ color:var(--ink); }
+  .qq{ border-top:1px dashed var(--line); margin-top:12px; padding-top:10px; font-size:12.5px; line-height:1.9; color:var(--ink); }
+
+  #toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(112px + env(safe-area-inset-bottom));
+          background:#26231e; border:1px solid var(--line); color:var(--ink); border-radius:6px; padding:8px 14px;
+          font-size:12.5px; font-weight:700; opacity:0; transition:opacity .25s; z-index:9; pointer-events:none;
+          max-width:88vw; text-align:center; line-height:1.5; }
+  @media (prefers-reduced-motion: reduce){
+    .flash b,.sealed.opened{ animation:none; }
+  }
+</style>
+</head>
+<body>
+<div id="hud" hidden>
+  <div class="row">
+    <span class="stat air" id="stAir"></span>
+    <span class="stat" id="stDepth"></span>
+    <span class="stat" id="stWeight"></span>
+    <span class="stat cost" id="stCost"></span>
+  </div>
+</div>
+
+<main id="shaft" hidden></main>
+
+<div id="ropeBar" hidden>
+  <div class="inner">
+    <button id="ropeBtn"><span class="fill"></span><span id="ropeLabel"></span><small id="ropeSub"></small></button>
+    <div id="ropeHint"></div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<!-- 표지 -->
+<div class="ovl" id="cover">
+  <div class="inner"><div class="panel">
+    <div class="tag"><span>TOY 05 · CLAUDE BUILD</span><button id="langBtn">EN</button></div>
+    <h1 id="cvTitle"></h1>
+    <div class="sub" id="cvSub"></div>
+    <div class="qbox" id="cvQ"></div>
+    <div class="rules" id="cvRules"></div>
+    <div class="bonusNote" id="cvBonus" hidden></div>
+    <button class="wide" id="startBtn"></button>
+  </div></div>
+</div>
+
+<!-- 죽음 -->
+<div class="ovl" id="death" hidden>
+  <div class="inner"><div class="panel">
+    <div class="tag"><span id="dtTag"></span><span class="mono" id="dtRun"></span></div>
+    <h1 id="dtTitle"></h1>
+    <div class="rules" id="dtBody"></div>
+    <div class="score" id="dtScore"></div>
+    <button class="wide" id="dtAgain"></button>
+  </div></div>
+</div>
+
+<!-- 생환 · 개봉 -->
+<div class="ovl" id="surface" hidden>
+  <div class="inner"><div class="panel">
+    <div class="tag"><span id="sfTag"></span><span class="mono" id="sfRun"></span></div>
+    <h1 id="sfTitle"></h1>
+    <div class="rules" id="sfLead"></div>
+    <div id="sfCards"></div>
+    <div class="score" id="sfScore"></div>
+    <div class="qq" id="sfQQ"></div>
+    <button class="wide" id="sfAgain"></button>
+  </div></div>
+</div>
+
+<script>
+"use strict";
+/* ═══ 설계 상수 (밸런스 시뮬 대상) ═══ */
+const CONFIG={ START_AIR:20, DESCEND_COST:1, RETURN_PER_DEPTH:1, MAX_DEPTH:16 };
+
+/* 층 데이터: w=물(+숨), a=봉인 유물{wt,band}, e=조우 id, v=벽의 문장 idx, leg=전설 */
+const LAYERS={
+  1:{v:0}, 2:{w:3}, 3:{a:{wt:1,band:"sh"}}, 4:{e:"bridge",a:{wt:1,band:"sh",gated:true}},
+  5:{w:3,v:1}, 6:{a:{wt:2,band:"mid"}}, 7:{e:"sound"}, 8:{w:4,e:"crack"},
+  9:{a:{wt:2,band:"mid"},v:2}, 10:{a:{wt:3,band:"mid"}}, 11:{w:4},
+  12:{e:"darkbreath",a:{wt:2,band:"dp"}}, 13:{a:{wt:3,band:"dp"},v:3}, 14:{w:5},
+  15:{leg:true,v:4}, 16:{v:5}
+};
+
+/* 유물 풀 (갓챠: 봉인 시 밴드 풀에서 추첨, 개봉 시 공개) */
+const POOLS={
+  sh:[ {id:"button",v:3}, {id:"cup",v:4}, {id:"compass",v:5} ],
+  mid:[ {id:"flute",v:8}, {id:"chart",v:9}, {id:"hook",v:6,meta:"hook"}, {id:"pearl",v:12} ],
+  dp:[ {id:"lantern",v:10,meta:"lantern"}, {id:"statue",v:18} ],
+  leg:[ {id:"lightbelow",v:30} ]
+};
+
+const L={
+ko:{
+  title:"심연은 아래로만 읽힌다", sub:"THE DESCENT · 한 번의 하강, 한 번의 결단",
+  q:"검증 질문<br>“몇 층에서 로프를 당길 것인가 — 그 결단이 재미인가?”",
+  rules:"아래로만 스크롤할 수 있다. 이전 층으로는 못 돌아간다.<br>돌아오는 방법은 로프뿐 — <b>귀환 비용 = 깊이 + 짐의 무게.</b><br>주울수록 로프가 무거워진다. 봉인된 꾸러미는 살아서 돌아가야 열린다.",
+  start:"하강 시작", again:"⟳ 다시 내려간다",
+  air:"숨", depth:"깊이", weight:"무게", cost:"귀환",
+  ropePull:"로프를 당긴다", ropeHold:"길게 눌러 당긴다", ropeNoAir:"숨이 모자라다 — 더 내려가 물을 찾거나, 여기서 끝이다",
+  ropeCost:c=>"귀환 비용 "+c+"숨",
+  boundary:"더 깊이", boundaryMark:"▽ ▽ ▽",
+  firstBoundary:"경계를 넘으면 되돌아올 수 없다 (-1숨)",
+  noUp:"위로는 읽을 수 없다 — 심연은 아래로만 읽힌다",
+  layerName:d=>d+"층 · "+(d*7)+"m",
+  water:"고인 숨", waterDesc:"차고 맑다. 폐가 기억하는 맛.", drink:v=>"들이켠다 +"+v,
+  sealed:"봉인된 꾸러미", sealedDesc:w=>"무엇인지 알 수 없다. 무게 "+w+".", take:"줍는다", leave:"남겨둔다", taken:"가방에 넣었다",
+  gatedLock:"다리 건너에 있다 — 닿을 수 없었다",
+  legacy:"이전 탐사의 가방", legacyDesc:(n,w)=>"당신이 여기서 멈췄던 흔적. 꾸러미 "+n+"개, 무게 "+w+".", recover:"회수한다", recovered:"이전 나의 짐을 이어받았다",
+  legend:"바닥의 빛", legendDesc:"위로 자라는 빛이 있다. 뿌리가 더 아래에 있다. 무게 3.",
+  enc:{
+    bridge:{ t:"무너진 다리", d:"건너편 벽감에 꾸러미가 보인다.", a:["건넌다","-2숨"], b:["우회한다","-1숨 · 꾸러미 포기"] },
+    sound:{ t:"어둠 속의 소리", d:"물방울 소리가 난다. 등불을 돌릴 것인가.", a:["비춘다","-1숨 · 확인"], b:["지나친다","0"] , found:"고인 숨을 찾았다 +2"},
+    crack:{ t:"좁아지는 틈", d:"짐을 진 몸이 걸린다.", a:["가장 무거운 꾸러미를 놓는다","무게 감소"], b:["밀고 지나간다","-3숨"], empty:"빈 몸은 그냥 지나간다." },
+    darkbreath:{ t:"숨을 삼키는 어둠", d:"이 층의 공기는 마시는 것이 아니라 빼앗기는 것이다. -2숨." }
+  },
+  verses:[
+    "첫 번째 기록 — 심연은 아래로만 읽힌다. 우리가 그렇게 적었다.",
+    "다섯 번째 매듭. 여기서부터 숨이 무거워진다.",
+    "누군가 여기서 가방을 전부 비우고 올라갔다. 현명했다.",
+    "열세 번째 지층. 빈손이라면 여기가 한계다. 우리는 빈손이 아니었다.",
+    "빛이 있다. 아래에서 올라오는.",
+    "기록은 여기서 끝난다."
+  ],
+  arts:{
+    button:["유리 단추","누군가의 외투에서 떨어졌다."], cup:["이 빠진 잔","마지막으로 담긴 것은 물이 아니었다."],
+    compass:["녹슨 나침반","바늘이 아래를 가리킨다."], flute:["뼈 피리","불면 어둠이 잠시 조용해진다."],
+    chart:["접힌 해도","여기가 바다였던 적이 있다."], hook:["가벼운 갈고리","다음 하강 — 귀환 비용 -2."],
+    pearl:["검은 진주","빛을 돌려주지 않는다."], lantern:["이끼 랜턴","다음 하강 — 시작 숨 +2."],
+    statue:["눈 없는 조각상","그래도 이쪽을 본다."], lightbelow:["아래에서 온 빛","심연의 바닥에서 위로 자라던 것."]
+  },
+  deathTitle:"숨이 다했다.", death:d=>"어둠이 이름을 받아 적는다.<br>가방은 <b>"+d+"층</b>에 남았다 — 다음 하강이 그것을 발견할 것이다.",
+  deathScore:(d,n)=>"도달 깊이 <b>"+d+"층</b> · 잃은 꾸러미 <b>"+n+"</b>",
+  surfaceTitle:"지상. 폐가 빛을 들이켠다.",
+  surfaceLead:n=> n>0 ? "봉인을 연다 — 하나씩 눌러라." : "빈손의 생환. 기록만 남는다.",
+  open:"연다", newMark:"도감 등록",
+  score:(v,d,c,t)=>"이번 하강 가치 <b>"+v+"</b> · 깊이 <b>"+d+"층</b> · 도감 <b>"+c+"/10</b> · 최고 기록 "+t+"층",
+  vLabel:"가치",
+  qq:"Q1. 한 번 더 내려가고 싶은가 — 왜?<br>Q2. 로프를 당길까 말까 <b>망설인 층</b>이 있었나 — 몇 층?<br>Q3. 봉인 개봉의 순간 — <b>이걸 위해 광고 한 편을 볼 만한가?</b>",
+  note:"세션 안에서만 기억된다 · 새로고침하면 심연은 처음부터",
+  bonus:{hook:"이전 생환 보너스 — 갈고리: 이번 런 귀환 비용 -2", lantern:"이전 생환 보너스 — 이끼 랜턴: 이번 런 시작 숨 +2"},
+  runTag:"하강", surfTag:"생환 보고", deadTag:"실종 기록"
+},
+en:{
+  title:"IT READS ONLY DOWNWARD", sub:"THE DESCENT · one dive, one decision",
+  q:"The question<br>“At what depth will you pull the rope — is that decision fun?”",
+  rules:"You can only scroll down. No returning to layers above.<br>The rope is the only way back — <b>return cost = depth + weight.</b><br>Every pickup makes the rope heavier. Sealed bundles open only if you make it back alive.",
+  start:"BEGIN DESCENT", again:"⟳ DESCEND AGAIN",
+  air:"AIR", depth:"DEPTH", weight:"LOAD", cost:"RETURN",
+  ropePull:"PULL THE ROPE", ropeHold:"hold to pull", ropeNoAir:"Not enough air — find water below, or end here",
+  ropeCost:c=>"return costs "+c+" air",
+  boundary:"DEEPER", boundaryMark:"▽ ▽ ▽",
+  firstBoundary:"Cross the line and there is no way back (-1 air)",
+  noUp:"You cannot read upward — the abyss reads only down",
+  layerName:d=>"LAYER "+d+" · "+(d*7)+"m",
+  water:"Pooled breath", waterDesc:"Cold and clear. A taste your lungs remember.", drink:v=>"Drink +"+v,
+  sealed:"Sealed bundle", sealedDesc:w=>"Contents unknown. Weight "+w+".", take:"Take", leave:"Leave", taken:"Into the bag",
+  gatedLock:"Across the bridge — out of reach",
+  legacy:"A bag from a past descent", legacyDesc:(n,w)=>"Where you once stopped. "+n+" bundle(s), weight "+w+".", recover:"Recover", recovered:"You carry your former self's load",
+  legend:"The light at the bottom", legendDesc:"A light that grows upward. Its roots go deeper. Weight 3.",
+  enc:{
+    bridge:{ t:"Collapsed bridge", d:"A bundle rests in the far alcove.", a:["Cross","-2 air"], b:["Go around","-1 air · forfeit bundle"] },
+    sound:{ t:"A sound in the dark", d:"Dripping water. Turn the lantern?", a:["Shine","-1 air · look"], b:["Pass","0"], found:"Found pooled breath +2" },
+    crack:{ t:"Narrowing crack", d:"A loaded body gets stuck.", a:["Drop heaviest bundle","less weight"], b:["Push through","-3 air"], empty:"An empty body slips through." },
+    darkbreath:{ t:"Air-swallowing dark", d:"Here the air is not breathed — it is taken. -2 air." }
+  },
+  verses:[
+    "First record — the abyss reads only downward. We wrote it so.",
+    "Fifth knot. From here, breath grows heavy.",
+    "Someone emptied their whole bag here and climbed. Wise.",
+    "Layer thirteen. Empty-handed, this is the limit. We were not empty-handed.",
+    "There is a light. Rising from below.",
+    "The record ends here."
+  ],
+  arts:{
+    button:["Glass button","Fell from someone's coat."], cup:["Chipped cup","The last thing it held was not water."],
+    compass:["Rusted compass","The needle points down."], flute:["Bone flute","Played, it quiets the dark a while."],
+    chart:["Folded sea-chart","This was once a sea."], hook:["Light grapnel","Next descent — return cost -2."],
+    pearl:["Black pearl","Returns no light."], lantern:["Moss lantern","Next descent — starting air +2."],
+    statue:["Eyeless statue","It watches this way regardless."], lightbelow:["The light from below","It grew upward from the floor of the abyss."]
+  },
+  deathTitle:"The air runs out.", death:d=>"The dark writes your name down.<br>Your bag remains at <b>layer "+d+"</b> — the next descent will find it.",
+  deathScore:(d,n)=>"Reached <b>layer "+d+"</b> · bundles lost <b>"+n+"</b>",
+  surfaceTitle:"Surface. Your lungs drink the light.",
+  surfaceLead:n=> n>0 ? "Break the seals — tap each one." : "An empty-handed return. Only the record remains.",
+  open:"Open", newMark:"NEW ENTRY",
+  score:(v,d,c,t)=>"Run value <b>"+v+"</b> · depth <b>"+d+"</b> · codex <b>"+c+"/10</b> · best "+t,
+  vLabel:"value",
+  qq:"Q1. Do you want to descend again — why?<br>Q2. Was there a layer where you <b>hesitated</b> to pull the rope — which?<br>Q3. The seal-opening moment — <b>worth watching an ad for?</b>",
+  note:"remembered only within this session · refresh and the abyss starts over",
+  bonus:{hook:"Carried bonus — Grapnel: return cost -2 this run", lantern:"Carried bonus — Moss lantern: +2 starting air this run"},
+  runTag:"DESCENT", surfTag:"SURFACE REPORT", deadTag:"MISSING RECORD"
+}};
+
+/* ═══ 상태 ═══ */
+let lang="ko", run=0, best=0, codex=new Set(), metaNext={hook:false,lantern:false};
+let legacyBag=null, legacyDepth=0; // 유품 (세션 내)
+let S=null, timers=[];
+const $=id=>document.getElementById(id);
+const t=k=>L[lang][k];
+const reduced=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+function later(fn,ms){ const id=setTimeout(fn,ms); timers.push(id); }
+function clearTimers(){ timers.forEach(clearTimeout); timers=[]; }
+let toastTm;
+function toast(msg){ const el=$("toast"); el.textContent=msg; el.style.opacity=1;
+  clearTimeout(toastTm); toastTm=setTimeout(()=>el.style.opacity=0,2100); }
+
+function newState(){
+  const air=CONFIG.START_AIR+(metaNext.lantern?2:0);
+  return { air, depth:0, bag:[], usedMeta:{...metaNext}, dead:false, done:false,
+           firstBoundaryShown:false, layerTops:{}, opened:false };
+}
+const bagWeight=()=>S.bag.reduce((s,b)=>s+b.wt,0);
+const returnCost=()=>Math.max(0, S.depth*CONFIG.RETURN_PER_DEPTH + bagWeight() - (S.usedMeta.hook?2:0));
+
+/* ═══ HUD ═══ */
+function hud(){
+  const set=(id,label,val)=>{ const el=$(id); const old=el.dataset.v;
+    el.innerHTML=label+" <b>"+val+"</b>"; if(old!==undefined&&old!==String(val)&&!reduced){ el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); } el.dataset.v=val; };
+  set("stAir",t("air"),S.air);
+  set("stDepth",t("depth"),S.depth);
+  set("stWeight",t("weight"),bagWeight());
+  set("stCost",t("cost"),returnCost());
+  const can=S.air>=returnCost()&&S.depth>0;
+  $("ropeBtn").disabled=!can;
+  $("ropeLabel").textContent=t("ropePull");
+  $("ropeSub").textContent=t("ropeCost")(returnCost());
+  $("ropeHint").textContent=can?t("ropeHold"):(S.depth>0?t("ropeNoAir"):"");
+}
+function spendAir(n){
+  S.air-=n; hud();
+  if(S.air<=0&&!S.dead&&!S.done){ S.air=Math.max(0,S.air); die(); }
+}
+
+/* ═══ 층 렌더 ═══ */
+function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
+
+function renderLayer(d){
+  const shaft=$("shaft");
+  const block=el("section","layer"); block.id="layer_"+d;
+  block.append(el("div","depthTag mono",t("layerName")(d)));
+  const data=LAYERS[d]||{};
+
+  if(data.v!=null) block.append(el("div","verse",t("verses")[data.v]));
+
+  if(d===legacyDepth&&legacyBag&&legacyBag.length){
+    const lw=legacyBag.reduce((s,b)=>s+b.wt,0);
+    const item=el("div","item legacy");
+    item.append(el("div","t",t("legacy")));
+    item.append(el("div","d",t("legacyDesc")(legacyBag.length,lw)));
+    const bt=el("div","btns"); const b=el("button","ibtn",t("recover"));
+    b.onclick=()=>{ S.bag.push(...legacyBag); legacyBag=null; legacyDepth=0;
+      item.classList.add("done"); b.disabled=true; toast(t("recovered")); hud(); };
+    bt.append(b); item.append(bt); block.append(item);
+  }
+
+  if(data.e) block.append(renderEncounter(d,data));
+  if(data.w) block.append(renderWater(d,data.w));
+  if(data.a) block.append(renderArtifact(d,data.a));
+  if(data.leg) block.append(renderLegend(d));
+
+  if(d<CONFIG.MAX_DEPTH){
+    const bd=el("div","boundary",t("boundary")+"<span class='mark'>"+t("boundaryMark")+"</span>");
+    bd.dataset.next=d+1; block.append(bd);
+  }
+  shaft.append(block);
+  S.layerTops[d]=block.offsetTop;
+}
+
+function renderWater(d,v){
+  const item=el("div","item water");
+  item.append(el("div","t",t("water")));
+  item.append(el("div","d",t("waterDesc")));
+  const bt=el("div","btns"); const b=el("button","ibtn",t("drink")(v));
+  b.onclick=()=>{ S.air+=v; item.classList.add("done"); b.disabled=true; hud(); };
+  bt.append(b); item.append(bt); item.dataset.pass="1"; return item;
+}
+function drawSealed(band){ const pool=POOLS[band]; return pool[Math.floor(Math.random()*pool.length)]; }
+function renderArtifact(d,a){
+  const item=el("div","item artifact");
+  item.append(el("div","t",t("sealed")));
+  item.append(el("div","d",t("sealedDesc")(a.wt)));
+  const bt=el("div","btns");
+  const take=el("button","ibtn",t("take")+"<small>+"+a.wt+" "+t("weight")+"</small>");
+  const leave=el("button","ibtn",t("leave")+"<small>0</small>");
+  if(a.gated){ take.disabled=true; take.dataset.gated="1"; item.dataset.gated=d; }
+  take.onclick=()=>{ const art=drawSealed(a.band);
+    S.bag.push({wt:a.wt,band:a.band,art});
+    item.classList.add("done"); take.disabled=true; leave.disabled=true; toast(t("taken")); hud(); };
+  leave.onclick=()=>{ item.classList.add("done"); take.disabled=true; leave.disabled=true; };
+  bt.append(take,leave); item.append(bt); item.dataset.pass="1"; return item;
+}
+function renderLegend(d){
+  const item=el("div","item artifact");
+  item.append(el("div","t",t("legend")));
+  item.append(el("div","d",t("legendDesc")));
+  const bt=el("div","btns");
+  const takeBtn=el("button","ibtn",t("take")+"<small>+3 "+t("weight")+"</small>");
+  takeBtn.onclick=()=>{ S.bag.push({wt:3,band:"leg",art:POOLS.leg[0]});
+    item.classList.add("done"); takeBtn.disabled=true; toast(t("taken")); hud(); };
+  bt.append(takeBtn); item.append(bt); item.dataset.pass="1"; return item;
+}
+function renderEncounter(d,data){
+  const E=t("enc")[data.e];
+  const item=el("div","item");
+  item.append(el("div","t",E.t));
+  item.append(el("div","d",E.d));
+  if(data.e==="darkbreath"){ item.dataset.auto="1"; return item; }
+  const bt=el("div","btns");
+  const A=el("button","ibtn",E.a[0]+"<small>"+E.a[1]+"</small>");
+  const B=el("button","ibtn",E.b[0]+"<small>"+E.b[1]+"</small>");
+  const doneBoth=()=>{ item.classList.add("done"); A.disabled=true; B.disabled=true; };
+  if(data.e==="bridge"){
+    A.onclick=()=>{ spendAir(2); doneBoth();
+      const g=document.querySelector('[data-gated="'+d+'"] .ibtn[data-gated]');
+      const gi=document.querySelector('.item[data-gated="'+d+'"]');
+      if(g){ g.disabled=false; delete g.dataset.gated; }
+      if(gi) gi.querySelector(".d").insertAdjacentHTML("beforeend","");
+    };
+    B.onclick=()=>{ spendAir(1); doneBoth();
+      const gi=document.querySelector('.item[data-gated="'+d+'"]');
+      if(gi){ gi.classList.add("missed"); gi.querySelectorAll("button").forEach(x=>x.disabled=true);
+        gi.querySelector(".d").textContent=t("gatedLock"); }
+    };
+  }else if(data.e==="sound"){
+    A.onclick=()=>{ spendAir(1); S.air+=2; doneBoth(); toast(E.found); hud(); };
+    B.onclick=doneBoth;
+  }else if(data.e==="crack"){
+    if(!S.bag.length){ item.querySelector(".d").textContent=E.empty; item.classList.add("done");
+      item.dataset.pass=""; return item; }
+    A.onclick=()=>{ if(S.bag.length){ let hi=0; S.bag.forEach((b,i)=>{ if(b.wt>S.bag[hi].wt) hi=i; });
+        S.bag.splice(hi,1); } doneBoth(); hud(); };
+    B.onclick=()=>{ spendAir(3); doneBoth(); };
+  }
+  bt.append(A,B); item.append(bt); item.dataset.pass="1"; return item;
+}
+
+/* ═══ 하강 (스크롤 엔진) ═══ */
+let ticking=false;
+function onScroll(){
+  if(!S||S.dead||S.done) return;
+  if(ticking) return; ticking=true;
+  requestAnimationFrame(()=>{ ticking=false;
+    const minY=(S.layerTops[S.depth]||0)-70;
+    if(window.scrollY<minY){ window.scrollTo(0,minY);
+      if(!S.noUpShown){ S.noUpShown=true; toast(t("noUp")); } return; }
+    const bd=document.querySelector('#layer_'+S.depth+' .boundary');
+    if(bd){ const r=bd.getBoundingClientRect();
+      if(r.bottom<window.innerHeight*0.45) descend(); }
+  });
+}
+function descend(){
+  const next=S.depth+1;
+  if(next>CONFIG.MAX_DEPTH||S.dead||S.done) return;
+  S.depth=next;
+  if(next===1&&!S.firstBoundaryShown){ } // 1층 진입은 시작 시 처리
+  // 지나친 항목 잠금
+  const prev=$("layer_"+(next-1));
+  if(prev) prev.querySelectorAll('.item[data-pass="1"]:not(.done)').forEach(it=>{
+    it.classList.add("missed"); it.querySelectorAll("button").forEach(b=>b.disabled=true); });
+  renderLayer(next);
+  spendAir(CONFIG.DESCEND_COST);
+  if(S.dead) return;
+  const data=LAYERS[next]||{};
+  if(data.e==="darkbreath"){ later(()=>{ toast(t("enc").darkbreath.t+" · -2"); spendAir(2); },300); }
+  if(best<next) best=next;
+  hud();
+}
+
+/* ═══ 로프 (길게 눌러 귀환) ═══ */
+let holdTm=null, holdStart=0;
+function ropeDown(e){ e.preventDefault();
+  if($("ropeBtn").disabled||S.dead||S.done) return;
+  holdStart=Date.now();
+  const fill=$("ropeBtn").querySelector(".fill");
+  fill.style.transition= reduced?"none":"width 650ms linear"; fill.style.width="100%";
+  holdTm=setTimeout(()=>surfaceUp(), reduced?80:660);
+}
+function ropeUp(){ clearTimeout(holdTm);
+  const fill=$("ropeBtn").querySelector(".fill");
+  fill.style.transition="width 140ms linear"; fill.style.width="0%"; }
+
+/* ═══ 죽음 · 생환 ═══ */
+function freezeWorld(){ $("ropeBar").hidden=true; }
+function die(){
+  S.dead=true; freezeWorld();
+  legacyBag=S.bag.length?S.bag.slice():null; legacyDepth=S.bag.length?S.depth:0;
+  $("dtTag").textContent=t("deadTag"); $("dtRun").textContent="R"+run;
+  $("dtTitle").textContent=t("deathTitle");
+  $("dtBody").innerHTML=t("death")(S.depth);
+  $("dtScore").innerHTML=t("deathScore")(S.depth,S.bag.length);
+  $("dtAgain").textContent=t("again");
+  metaNext={hook:false,lantern:false};
+  $("death").hidden=false; window.scrollTo(0,0);
+}
+function surfaceUp(){
+  const cost=returnCost();
+  if(S.air<cost) return;
+  S.done=true; S.air-=cost; freezeWorld();
+  metaNext={hook:false,lantern:false};
+  $("sfTag").textContent=t("surfTag"); $("sfRun").textContent="R"+run+" · "+t("air")+" "+S.air;
+  $("sfTitle").textContent=t("surfaceTitle");
+  $("sfLead").textContent=t("surfaceLead")(S.bag.length);
+  const box=$("sfCards"); box.replaceChildren();
+  let value=0, toOpen=S.bag.length;
+  S.bag.forEach(b=>{
+    const c=el("div","sealed");
+    c.append(el("div","name","???"));
+    c.append(el("div","meta",t("sealedDesc")(b.wt)));
+    c.tabIndex=0;
+    const open=()=>{ if(c.dataset.open) return; c.dataset.open="1";
+      const [nm,fl]=t("arts")[b.art.id];
+      const isNew=!codex.has(b.art.id); codex.add(b.art.id);
+      if(b.art.meta) metaNext[b.art.meta]=true;
+      value+=b.art.v;
+      c.classList.add("opened");
+      c.querySelector(".name").innerHTML=nm+" <span class='mono'>· "+t("vLabel")+" "+b.art.v+"</span>"+(isNew?" <span class='newmark'>"+t("newMark")+"</span>":"");
+      c.querySelector(".meta").textContent=fl;
+      toOpen--; if(toOpen===0) finishScore(value);
+    };
+    c.onclick=open;
+    c.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); } };
+    box.append(c);
+  });
+  if(!S.bag.length) finishScore(0);
+  $("sfQQ").innerHTML=t("qq");
+  $("sfAgain").textContent=t("again");
+  $("surface").hidden=false; window.scrollTo(0,0);
+  function finishScore(v){
+    $("sfScore").innerHTML=t("score")(v,S.depth,codex.size,best)+"<br><span style='color:var(--dim)'>"+t("note")+"</span>";
+  }
+}
+
+/* ═══ 런 시작/리셋 ═══ */
+function startRun(){
+  clearTimers(); run++;
+  S=newState();
+  $("shaft").replaceChildren();
+  $("shaft").hidden=false; $("hud").hidden=false; $("ropeBar").hidden=false;
+  $("death").hidden=true; $("surface").hidden=true;
+  window.scrollTo(0,0);
+  S.depth=1; renderLayer(1);
+  toast(t("firstBoundary"));
+  hud();
+}
+function renderCover(){
+  document.documentElement.lang=lang;
+  $("cvTitle").textContent=t("title"); $("cvSub").textContent=t("sub");
+  $("cvQ").innerHTML=t("q"); $("cvRules").innerHTML=t("rules");
+  $("startBtn").textContent=t("start"); $("langBtn").textContent=lang==="ko"?"EN":"KO";
+  const bn=[]; if(metaNext.hook)bn.push(t("bonus").hook); if(metaNext.lantern)bn.push(t("bonus").lantern);
+  $("cvBonus").hidden=!bn.length; $("cvBonus").innerHTML=bn.join("<br>");
+}
+
+window.addEventListener("scroll",onScroll,{passive:true});
+$("ropeBtn").addEventListener("pointerdown",ropeDown);
+$("ropeBtn").addEventListener("pointerup",ropeUp);
+$("ropeBtn").addEventListener("pointercancel",ropeUp);
+$("ropeBtn").addEventListener("pointerleave",ropeUp);
+$("langBtn").onclick=()=>{ lang=lang==="ko"?"en":"ko"; renderCover(); };
+$("startBtn").onclick=()=>{ $("cover").hidden=true; startRun(); };
+$("dtAgain").onclick=()=>{ $("death").hidden=true; renderCover(); $("cover").hidden=false; };
+$("sfAgain").onclick=()=>{ $("surface").hidden=true; renderCover(); $("cover").hidden=false; };
+renderCover();
+</script>
+</body>
+</html>

@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#edf2ef">
+<title>답장하지 않는 시간 · REPLY TIMING · Toy 04</title>
+<script src="../build-meta.js" defer></script>
+<style>
+  :root{
+    --paper:#edf2ef;
+    --ink:#121514;
+    --act:#2457d6;
+    --bad:#e5482d;
+    --hold:#d7ee3a;
+    --ok:#167a55;
+    --dim:#727b77;
+    --rule:rgba(18,21,20,.25);
+    --thread:var(--act);
+    --build-meta-color:var(--dim);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ width:100%; height:100%; background:var(--paper); }
+  body{
+    overflow:hidden;
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    font-size:16px;
+    line-height:1.45;
+  }
+  button{ font:inherit; }
+  .mono{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums;
+  }
+
+  #game{
+    width:min(100%,520px);
+    height:100dvh;
+    margin:0 auto;
+    display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto;
+    padding:calc(8px + env(safe-area-inset-top)) 12px 0;
+  }
+  #game.thread-boss{ --thread:var(--act); }
+  #game.thread-friend{ --thread:var(--ok); }
+  #game.thread-unknown{ --thread:var(--bad); }
+
+  #statusHead{
+    border-top:7px solid var(--ink);
+    border-bottom:2px solid var(--ink);
+    padding:7px 0 8px;
+  }
+  .topline{ display:flex; justify-content:space-between; gap:10px; color:var(--dim); font-size:10px; font-weight:800; }
+  .identity{ display:grid; grid-template-columns:36px minmax(0,1fr) auto; gap:9px; align-items:center; margin-top:7px; }
+  #contactMark{
+    width:36px;
+    height:36px;
+    display:grid;
+    place-items:center;
+    border:2px solid var(--thread);
+    color:var(--thread);
+    font-size:17px;
+    font-weight:900;
+  }
+  #contactName{ font-size:20px; line-height:1; font-weight:900; letter-spacing:0; }
+  #contactCode{ display:block; margin-top:3px; color:var(--dim); font-size:9px; font-weight:800; }
+  #stepCounter{ color:var(--thread); font-size:13px; font-weight:900; }
+
+  #progress{
+    display:grid;
+    grid-template-columns:repeat(9,1fr);
+    gap:3px;
+    height:8px;
+    margin-top:9px;
+  }
+  .progressCell{ border:1px solid var(--rule); background:transparent; }
+  .progressCell.current{ border-color:var(--ink); border-width:2px; }
+  .progressCell.now{ border-color:var(--act); background:var(--act); }
+  .progressCell.wait{ border-color:#a8be14; background:var(--hold); }
+  .progressCell.ignore{ border-color:var(--bad); background:var(--bad); }
+
+  #presenceLane{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    gap:8px;
+    align-items:center;
+    min-height:27px;
+    margin-top:7px;
+    color:var(--dim);
+    font-size:9px;
+    font-weight:800;
+  }
+  #presenceSignal{
+    position:relative;
+    min-width:0;
+    border-top:1px solid var(--rule);
+    text-align:center;
+  }
+  #presenceSignal span{
+    position:relative;
+    top:-8px;
+    display:inline-block;
+    max-width:100%;
+    overflow:hidden;
+    background:var(--paper);
+    padding:0 7px;
+    color:var(--thread);
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #presenceSignal.sending span{ animation:signal 520ms steps(2,end) infinite; }
+  #presenceSignal.typing span{ color:var(--act); animation:signal 620ms steps(2,end) infinite; }
+  #presenceSignal.canceled span{ color:var(--bad); text-decoration:line-through; }
+  @keyframes signal{ 50%{ opacity:.25; } }
+
+  #transcript{
+    min-height:0;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-width:thin;
+    padding:10px 0 14px;
+  }
+  #conversationLog{ display:flex; flex-direction:column; gap:8px; min-height:100%; }
+  .record{
+    position:relative;
+    width:86%;
+    border-top:1px solid var(--rule);
+    border-bottom:1px solid var(--rule);
+    padding:7px 9px 8px;
+    animation:printIn 140ms linear both;
+  }
+  .recordMeta{ display:flex; justify-content:space-between; gap:8px; color:var(--dim); font-size:9px; font-weight:800; }
+  .recordBody{ margin-top:4px; font-size:15px; line-height:1.45; overflow-wrap:anywhere; }
+  .record.incoming,.record.reaction{ align-self:flex-start; border-left:4px solid var(--thread); }
+  .record.outgoing{ align-self:flex-end; border-right:4px solid var(--act); text-align:right; }
+  .record.outgoing .recordMeta{ color:var(--act); }
+  .record.choice-now{ background:rgba(36,87,214,.055); }
+  .record.choice-wait{ border-right-color:#a8be14; background:rgba(215,238,58,.22); }
+  .record.choice-ignore{ border-right-color:var(--bad); background:rgba(229,72,45,.055); }
+  .record.receipt{
+    width:100%;
+    align-self:stretch;
+    border:1px dashed var(--rule);
+    color:var(--dim);
+    padding:5px 8px;
+  }
+  .record.receipt .recordBody{ margin:0; font:800 10px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .record.silence{
+    width:100%;
+    align-self:stretch;
+    border-top:1px dashed var(--bad);
+    border-bottom:0;
+    color:var(--dim);
+    padding:8px 4px;
+  }
+  .record.silence .recordBody{ font-size:12px; }
+  .record.ending{
+    width:100%;
+    align-self:stretch;
+    border:2px solid var(--ink);
+    border-left:7px solid var(--thread);
+    padding:10px;
+  }
+  .record.ending .recordBody{ font-weight:800; }
+  @keyframes printIn{ from{ opacity:0; transform:translateY(7px); } to{ opacity:1; transform:none; } }
+
+  #actions{
+    border-top:2px solid var(--ink);
+    background:var(--paper);
+    padding:8px 0 calc(8px + env(safe-area-inset-bottom));
+  }
+  .actionGrid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .action{
+    min-width:0;
+    min-height:60px;
+    border:1px solid var(--ink);
+    border-radius:2px;
+    background:var(--paper);
+    color:var(--ink);
+    padding:6px 3px;
+    font-weight:900;
+  }
+  .action strong{ display:block; font-size:14px; }
+  .action small{ display:block; margin-top:4px; color:var(--dim); font:700 9px/1.1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  .action:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+  .action:disabled{ border-style:dashed; color:var(--dim); opacity:.46; }
+  #nowBtn:not(:disabled){ border-color:var(--act); color:var(--act); }
+  #waitBtn:not(:disabled){ border-bottom:5px solid var(--hold); }
+  #ignoreBtn:not(:disabled){ border-color:var(--bad); color:var(--bad); }
+  .action.chosen{ background:var(--ink); color:var(--paper) !important; }
+  .action.chosen small{ color:var(--paper); }
+
+  .overlay{
+    position:fixed;
+    inset:0;
+    z-index:10;
+    overflow-y:auto;
+    background:var(--paper);
+  }
+  .overlayInner{
+    width:min(100%,460px);
+    min-height:100%;
+    margin:0 auto;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:24px 18px calc(24px + env(safe-area-inset-bottom));
+  }
+  .sheet{ border-top:8px solid var(--ink); border-bottom:2px solid var(--ink); padding:12px 0 16px; }
+  .sheetTop{ display:flex; justify-content:space-between; align-items:center; color:var(--dim); font-size:11px; font-weight:800; }
+  #langBtn{
+    min-width:44px;
+    min-height:32px;
+    border:1px solid var(--ink);
+    border-radius:2px;
+    background:transparent;
+    color:var(--ink);
+    font-size:11px;
+    font-weight:900;
+  }
+  #langBtn:focus-visible,.start:focus-visible{ outline:2px solid var(--act); outline-offset:3px; }
+  #coverTitle{ margin-top:20px; font-size:31px; line-height:1.12; font-weight:950; letter-spacing:0; }
+  .introLine{ margin-top:13px; font-size:17px; line-height:1.65; font-weight:750; }
+  .question{
+    margin-top:18px;
+    border-left:5px solid var(--hold);
+    padding:9px 0 9px 11px;
+    font-size:13px;
+    line-height:1.55;
+    font-weight:800;
+  }
+  .start{
+    width:100%;
+    min-height:58px;
+    margin-top:20px;
+    border:0;
+    border-radius:2px;
+    background:var(--ink);
+    color:var(--paper);
+    font-size:16px;
+    font-weight:900;
+  }
+  .build-meta{ margin-top:12px; color:var(--build-meta-color); text-align:center; font:700 8px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+
+  #report .overlayInner{ justify-content:flex-start; }
+  #report .sheet{ width:100%; margin:auto 0; }
+  .reportTitle{ margin-top:18px; font-size:27px; line-height:1.1; font-weight:950; }
+  .profileTitle{ margin-top:14px; color:var(--dim); font-size:11px; font-weight:800; }
+  .profileGrid{ display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--ink); border-bottom:1px solid var(--ink); margin-top:7px; }
+  .profileCell{ padding:9px 4px; text-align:center; }
+  .profileCell + .profileCell{ border-left:1px solid var(--rule); }
+  .profileCell span{ display:block; color:var(--dim); font-size:10px; }
+  .profileCell b{ display:block; margin-top:3px; font-size:22px; }
+  #reportEndings{ margin-top:14px; border-top:2px solid var(--ink); }
+  .endingRow{ display:grid; grid-template-columns:66px minmax(0,1fr); gap:9px; border-bottom:1px solid var(--rule); padding:9px 0; }
+  .endingRow strong{ color:var(--dim); font-size:10px; }
+  .endingRow p{ font-size:12px; line-height:1.5; }
+  .questions{ margin-top:14px; border-top:1px dashed var(--bad); padding-top:10px; color:var(--dim); font-size:11px; line-height:1.65; }
+  .questions p + p{ margin-top:3px; }
+  .note{ margin-top:9px; color:var(--dim); text-align:center; font-size:9px; }
+
+  @media (max-width:360px){
+    #game{ padding-left:9px; padding-right:9px; }
+    #contactName{ font-size:18px; }
+    .recordBody{ font-size:14px; }
+    .action strong{ font-size:13px; }
+    .endingRow{ grid-template-columns:58px minmax(0,1fr); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{ animation-duration:1ms !important; animation-iteration-count:1 !important; transition-duration:1ms !important; }
+  }
+</style>
+</head>
+<body>
+<main id="game" class="thread-boss" tabindex="-1" inert aria-hidden="true">
+  <header id="statusHead">
+    <div class="topline"><span>REPLY TIMING / TOY 04</span><span id="threadCounter" class="mono">1/3 · 1/9</span></div>
+    <div class="identity">
+      <div id="contactMark" aria-hidden="true">B</div>
+      <div><h1 id="contactName">상사</h1><span id="contactCode" class="mono">BOSS</span></div>
+      <div id="stepCounter" class="mono">01/09</div>
+    </div>
+    <div id="progress" aria-label="대화 진행"></div>
+    <div id="presenceLane" aria-live="polite">
+      <span id="selfLabel">나</span>
+      <div id="presenceSignal"><span id="presenceText">대기</span></div>
+      <span id="peerLabel">상사</span>
+    </div>
+  </header>
+
+  <section id="transcript" aria-label="대화 기록">
+    <div id="conversationLog" role="log" aria-live="polite" aria-relevant="additions"></div>
+  </section>
+
+  <footer id="actions">
+    <div class="actionGrid">
+      <button class="action" id="nowBtn"><strong>즉답</strong><small>NOW · 0s</small></button>
+      <button class="action" id="waitBtn"><strong>뜸</strong><small>WAIT · ...</small></button>
+      <button class="action" id="ignoreBtn"><strong>읽씹</strong><small>IGNORE · READ 1</small></button>
+    </div>
+  </footer>
+</main>
+
+<section class="overlay" id="cover" role="dialog" aria-modal="true" aria-labelledby="coverTitle">
+  <div class="overlayInner">
+    <div class="sheet">
+      <div class="sheetTop"><span>REPLY TIMING · TOY 04/04</span><button id="langBtn">EN</button></div>
+      <h1 id="coverTitle">답장하지 않는 시간</h1>
+      <p class="introLine" id="introLine">메시지가 온다. 바로 답하거나, 미루거나, 읽고 무시한다.</p>
+      <div class="question" id="coverQuestion">즉답 / 뜸 / 읽씹 — 침묵을 고르는 순간의 긴장이 몸에 오는가?</div>
+      <button class="start" id="startBtn">대화 열기</button>
+      <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
+    </div>
+  </div>
+</section>
+
+<section class="overlay" id="report" role="dialog" aria-modal="true" aria-labelledby="reportTitle" aria-hidden="true" hidden>
+  <div class="overlayInner">
+    <div class="sheet">
+      <div class="sheetTop"><span id="reportTag">TIMING REPORT</span><span id="reportRun" class="mono"></span></div>
+      <h2 class="reportTitle" id="reportTitle">답장 기록</h2>
+      <div class="profileTitle" id="profileTitle">타이밍 프로필 · 당신의 침묵 사용량</div>
+      <div class="profileGrid">
+        <div class="profileCell"><span id="profileNowLabel">즉답</span><b id="profileNow" class="mono">0</b></div>
+        <div class="profileCell"><span id="profileWaitLabel">뜸</span><b id="profileWait" class="mono">0</b></div>
+        <div class="profileCell"><span id="profileIgnoreLabel">읽씹</span><b id="profileIgnore" class="mono">0</b></div>
+      </div>
+      <div id="reportEndings"></div>
+      <button class="start" id="againBtn">⟳ 한 판 더</button>
+      <div class="questions" id="reportQuestions"></div>
+      <div class="note" id="reportNote">저장되지 않습니다</div>
+      <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
+    </div>
+  </div>
+</section>
+
+<script>
+"use strict";
+
+const $=id=>document.getElementById(id);
+const CHOICES=["now","wait","ignore"];
+const reduced=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+const motion=(normal,short=80)=>reduced?short:normal;
+
+let lang="ko";
+let run=0;
+let state=null;
+let timers=[];
+
+const UI={
+  ko:{
+    title:"답장하지 않는 시간",
+    intro:"메시지가 온다. 바로 답하거나, 미루거나, 읽고 무시한다.",
+    question:"즉답 / 뜸 / 읽씹 — 침묵을 고르는 순간의 긴장이 몸에 오는가?",
+    start:"대화 열기",
+    self:"나",
+    now:"즉답", wait:"뜸", ignore:"읽씹",
+    nowSub:"0초", waitSub:"입력 중…", ignoreSub:"읽음 1",
+    conversation:"대화 기록",
+    readSending:peer=>"읽음 → "+peer+" · 전달 중",
+    readSent:peer=>"읽음 → "+peer+" · 전달됨",
+    typingSent:peer=>"입력 중… → "+peer+" · 표시됨",
+    typingGone:"입력 중… · 사라짐",
+    peerTyping:peer=>peer+" 입력 중…",
+    readStays:"읽음 1 · 남음",
+    replyNow:"답장 전송 · 즉답",
+    replyWait:"답장 전송 · 뜸",
+    ignored:"응답하지 않음 · 읽음 1",
+    readReceipt:"읽음 기록",
+    threadEnd:"대화 종료",
+    reportTag:"TIMING REPORT",
+    reportTitle:"답장 기록",
+    profileTitle:"타이밍 프로필 · 당신의 침묵 사용량",
+    again:"⟳ 한 판 더",
+    note:"저장되지 않습니다",
+    questions:[
+      "Q1. 한 번 더? — 어느 대화를 다르게 하고 싶은가",
+      "Q2. 읽씹을 누를 때 망설인 순간이 있었나 — 어느 대화에서?",
+      "Q3. 셋 중 가장 신경 쓰인 대화는?"
+    ]
+  },
+  en:{
+    title:"THE TIME YOU DON'T REPLY",
+    intro:"A message arrives. Reply now, wait, or read it and say nothing.",
+    question:"NOW / WAIT / IGNORE — can you feel the tension when you choose silence?",
+    start:"OPEN THREAD",
+    self:"ME",
+    now:"NOW", wait:"WAIT", ignore:"IGNORE",
+    nowSub:"0s", waitSub:"typing…", ignoreSub:"read 1",
+    conversation:"Conversation record",
+    readSending:peer=>"READ → "+peer+" · SENDING",
+    readSent:peer=>"READ → "+peer+" · SENT",
+    typingSent:peer=>"TYPING… → "+peer+" · VISIBLE",
+    typingGone:"TYPING… · GONE",
+    peerTyping:peer=>peer+" IS TYPING…",
+    readStays:"READ 1 · REMAINS",
+    replyNow:"REPLY SENT · NOW",
+    replyWait:"REPLY SENT · WAIT",
+    ignored:"NO REPLY · READ 1",
+    readReceipt:"READ RECEIPT",
+    threadEnd:"THREAD CLOSED",
+    reportTag:"TIMING REPORT",
+    reportTitle:"REPLY RECORD",
+    profileTitle:"TIMING PROFILE · YOUR USE OF SILENCE",
+    again:"⟳ ONE MORE",
+    note:"nothing is saved",
+    questions:[
+      "Q1. One more — which conversation would you change?",
+      "Q2. Did you hesitate before ignoring one — which conversation?",
+      "Q3. Which of the three stayed on your mind?"
+    ]
+  }
+};
+
+const DATA={
+  ko:[
+    {
+      id:"boss", mark:"B", code:"BOSS", label:"상사",
+      incoming:[
+        "지금 잠깐 통화 가능해요?",
+        "내일 오전에 잠깐 볼까요?",
+        "아, 오늘 회의록 저만 못 받은 것 같은데."
+      ],
+      reactions:{
+        now:[
+          {text:"아 다행이다. 별건 아니고—"},
+          {text:"네 좋아요. 그럼 10시에."},
+          {text:"역시 빠르네요. 고마워요."}
+        ],
+        wait:[
+          {text:"바쁘면 문자로 해도 되고요."},
+          {text:"시간 되실 때 답 주세요."},
+          {text:"천천히요."}
+        ],
+        ignore:[
+          {text:"읽으신 것 같은데, 급한 건 아니에요. 내일 얘기하죠."},
+          {silent:"응답 없음 — 침묵이 침묵으로 돌아옴"},
+          {text:"…번호 바뀌셨나 해서요."}
+        ]
+      },
+      endings:{
+        now:"상사는 당신의 속도에 익숙해졌다 — 다음엔 더 빨리 기대할 것이다.",
+        wait:"상사는 당신을 재촉하지 않게 되었다. 대신 당신 없이 결정하기 시작했다.",
+        ignore:"다음날 아침, 상사는 전화를 걸어왔다."
+      }
+    },
+    {
+      id:"friend", mark:"F", code:"FRIEND", label:"친구",
+      incoming:[
+        "야 나 지금 밖인데 대박 그거 봤어???",
+        "아 맞다 너 주말에 시간 돼?",
+        "별거 아니고 그냥 보고 싶어서 그랬지 ㅋㅋ"
+      ],
+      reactions:{
+        now:[
+          {text:"ㅋㅋㅋㅋ그치?? 진짜 말도 안 됨"},
+          {text:"오 좋아 그럼 토요일?"},
+          {text:"가자 그럼. 진짜 오랜만이다"}
+        ],
+        wait:[
+          {text:"어 뭐해 바빠?"},
+          {text:"안 되면 말고~"},
+          {text:"그래, 연락 줘"}
+        ],
+        ignore:[
+          {text:"바쁜가 보네"},
+          {text:"…"},
+          {silent:"읽음 1 — 그리고 조용"}
+        ]
+      },
+      endings:{
+        now:"친구는 당신이 늘 거기 있다고 믿는다.",
+        wait:"친구는 눈치를 보기 시작했다.",
+        ignore:"친구의 다음 연락은 한 달 뒤였다."
+      }
+    },
+    {
+      id:"unknown", mark:"?", code:"UNKNOWN", label:"모르는 번호",
+      incoming:[
+        "저기, 혹시 지금 밖이세요?",
+        "번호 저장 안 하셨구나. 저 알아요, 당신.",
+        "내일 같은 시간에 다시 연락할게요."
+      ],
+      reactions:{
+        now:[
+          {text:"아, 역시 답이 빠르시네요."},
+          {text:"그렇게 바로 답하는 거, 여전하네요."},
+          {text:"그때도 이렇게 빨리 답해 주세요."}
+        ],
+        wait:[
+          {text:"천천히 답하셔도 돼요."},
+          {text:"고민하는 거 보여요. 입력 중이라고 떴다가 사라졌어요."},
+          {text:"생각할 시간을 드릴게요. 어차피 결과는 같으니까."}
+        ],
+        ignore:[
+          {text:"읽으셨네요."},
+          {text:"무시해도 읽음은 남아요."},
+          {prefix:"읽음 1",text:"…약속한 거예요."}
+        ]
+      },
+      endings:{
+        common:"당신의 읽음 기록은 지워지지 않는다.",
+        now:"그는 당신의 속도를 배웠다.",
+        wait:"그는 당신의 망설임을 배웠다.",
+        ignore:"그는 당신의 침묵을 배웠다."
+      }
+    }
+  ],
+  en:[
+    {
+      id:"boss", mark:"B", code:"BOSS", label:"Boss",
+      incoming:[
+        "Are you free for a quick call?",
+        "Could we talk for a moment tomorrow morning?",
+        "Oh, I think I'm the only one who didn't get today's meeting notes."
+      ],
+      reactions:{
+        now:[
+          {text:"Oh, good. It's nothing serious—"},
+          {text:"Great. Then 10 a.m."},
+          {text:"Quick as always. Thank you."}
+        ],
+        wait:[
+          {text:"If you're busy, we can text."},
+          {text:"Reply when you have time."},
+          {text:"No rush."}
+        ],
+        ignore:[
+          {text:"Looks like you've read it. It's not urgent. Let's talk tomorrow."},
+          {silent:"No response — silence answers silence."},
+          {text:"…I wondered if you'd changed your number."}
+        ]
+      },
+      endings:{
+        now:"Your boss grew used to your speed — next time, they will expect you even sooner.",
+        wait:"Your boss stopped rushing you. Instead, they started deciding without you.",
+        ignore:"The next morning, your boss called."
+      }
+    },
+    {
+      id:"friend", mark:"F", code:"FRIEND", label:"Friend",
+      incoming:[
+        "Hey I'm out right now, did you SEE that???",
+        "Oh right, are you free this weekend?",
+        "It was nothing. I just wanted to see you lol"
+      ],
+      reactions:{
+        now:[
+          {text:"RIGHT??? That was completely unreal"},
+          {text:"Oh good, Saturday then?"},
+          {text:"Let's do it. It's really been too long."}
+        ],
+        wait:[
+          {text:"What are you doing, busy?"},
+          {text:"It's fine if you can't~"},
+          {text:"Okay. Let me know."}
+        ],
+        ignore:[
+          {text:"Guess you're busy"},
+          {text:"…"},
+          {silent:"READ 1 — then quiet."}
+        ]
+      },
+      endings:{
+        now:"Your friend believes you will always be there.",
+        wait:"Your friend started watching for signs.",
+        ignore:"Your friend's next message came a month later."
+      }
+    },
+    {
+      id:"unknown", mark:"?", code:"UNKNOWN", label:"Unknown number",
+      incoming:[
+        "Excuse me, are you outside right now?",
+        "You didn't save this number. I know you. I know who you are.",
+        "I'll contact you again at the same time tomorrow."
+      ],
+      reactions:{
+        now:[
+          {text:"Ah, you still reply quickly."},
+          {text:"Replying that quickly — you haven't changed."},
+          {text:"Please reply this quickly then, too."}
+        ],
+        wait:[
+          {text:"Please take your time."},
+          {text:"I can see you thinking. 'Typing…' appeared, then disappeared."},
+          {text:"I'll give you time to think. The result will be the same anyway."}
+        ],
+        ignore:[
+          {text:"You've read it."},
+          {text:"Ignore me — the receipt stays."},
+          {prefix:"READ 1",text:"…You promised."}
+        ]
+      },
+      endings:{
+        common:"Your read receipts cannot be erased.",
+        now:"They learned your speed.",
+        wait:"They learned your hesitation.",
+        ignore:"They learned your silence."
+      }
+    }
+  ]
+};
+
+const DELTAS={
+  boss:{
+    now:{pressure:2,trust:1,suspicion:0,tempo:2},
+    wait:{pressure:0,trust:0,suspicion:1,tempo:0},
+    ignore:{pressure:3,trust:-2,suspicion:2,tempo:-2}
+  },
+  friend:{
+    now:{pressure:0,trust:2,suspicion:0,tempo:2},
+    wait:{pressure:1,trust:0,suspicion:1,tempo:0},
+    ignore:{pressure:1,trust:-3,suspicion:2,tempo:-2}
+  },
+  unknown:{
+    now:{pressure:2,trust:0,suspicion:3,tempo:2},
+    wait:{pressure:1,trust:0,suspicion:3,tempo:0},
+    ignore:{pressure:2,trust:-1,suspicion:4,tempo:-2}
+  }
+};
+
+const t=key=>UI[lang][key];
+const threads=()=>DATA[lang];
+const currentThread=()=>threads()[state.threadIndex];
+
+function later(fn,delay){
+  const id=setTimeout(()=>{
+    timers=timers.filter(timer=>timer!==id);
+    fn();
+  },delay);
+  timers.push(id);
+  return id;
+}
+
+function clearTimers(){
+  timers.forEach(clearTimeout);
+  timers=[];
+}
+
+function setGameActive(active){
+  $("game").toggleAttribute("inert",!active);
+  $("game").setAttribute("aria-hidden",active?"false":"true");
+}
+
+function renderStaticText(){
+  document.documentElement.lang=lang;
+  document.title=t("title")+" · REPLY TIMING · Toy 04";
+  $("coverTitle").textContent=t("title");
+  $("introLine").textContent=t("intro");
+  $("coverQuestion").textContent=t("question");
+  $("startBtn").textContent=t("start");
+  $("langBtn").textContent=lang==="ko"?"EN":"KO";
+  $("selfLabel").textContent=t("self");
+  $("nowBtn").querySelector("strong").textContent=t("now");
+  $("waitBtn").querySelector("strong").textContent=t("wait");
+  $("ignoreBtn").querySelector("strong").textContent=t("ignore");
+  $("nowBtn").querySelector("small").textContent=t("nowSub");
+  $("waitBtn").querySelector("small").textContent=t("waitSub");
+  $("ignoreBtn").querySelector("small").textContent=t("ignoreSub");
+  $("transcript").setAttribute("aria-label",t("conversation"));
+  $("reportTag").textContent=t("reportTag");
+  $("reportTitle").textContent=t("reportTitle");
+  $("profileTitle").textContent=t("profileTitle");
+  $("profileNowLabel").textContent=t("now");
+  $("profileWaitLabel").textContent=t("wait");
+  $("profileIgnoreLabel").textContent=t("ignore");
+  $("againBtn").textContent=t("again");
+  $("reportNote").textContent=t("note");
+  if(!state){
+    const first=threads()[0];
+    $("contactName").textContent=first.label;
+    $("contactCode").textContent=first.code;
+    $("peerLabel").textContent=first.label;
+  }
+}
+
+function makeState(){
+  return {
+    threadIndex:0,
+    stepIndex:0,
+    busy:true,
+    totals:{now:0,wait:0,ignore:0},
+    counts:DATA.ko.map(()=>({now:0,wait:0,ignore:0})),
+    hidden:DATA.ko.map(()=>({pressure:0,trust:0,suspicion:0,tempo:0})),
+    last:DATA.ko.map(()=>null),
+    endings:[],
+    startedAt:Date.now()
+  };
+}
+
+function buildProgress(){
+  const progress=$("progress");
+  progress.replaceChildren();
+  for(let i=0;i<9;i++){
+    const cell=document.createElement("span");
+    cell.className="progressCell";
+    progress.append(cell);
+  }
+}
+
+function updateProgress(){
+  const current=state.threadIndex*3+state.stepIndex;
+  Array.from($("progress").children).forEach((cell,index)=>{
+    cell.classList.toggle("current",index===current&&!state.busy);
+  });
+  $("progress").setAttribute("aria-label",(current+1)+" / 9");
+}
+
+function markProgress(choice){
+  const index=state.threadIndex*3+state.stepIndex;
+  const cell=$("progress").children[index];
+  if(cell){
+    cell.classList.remove("current");
+    cell.classList.add(choice);
+  }
+}
+
+function updateHeader(){
+  const thread=currentThread();
+  const overall=state.threadIndex*3+state.stepIndex+1;
+  $("game").className="thread-"+thread.id;
+  $("contactMark").textContent=thread.mark;
+  $("contactName").textContent=thread.label;
+  $("contactCode").textContent=thread.code;
+  $("peerLabel").textContent=thread.label;
+  $("threadCounter").textContent=(state.threadIndex+1)+"/3 · "+overall+"/9";
+  $("stepCounter").textContent=String(overall).padStart(2,"0")+"/09";
+  updateProgress();
+}
+
+function setPresence(kind,text){
+  const signal=$("presenceSignal");
+  signal.className=kind||"";
+  $("presenceText").textContent=text;
+}
+
+function scrollLog(){
+  const transcript=$("transcript");
+  transcript.scrollTop=transcript.scrollHeight;
+}
+
+function addRecord(kind,meta,body){
+  const record=document.createElement("article");
+  record.className="record "+kind;
+  const metaRow=document.createElement("div");
+  metaRow.className="recordMeta mono";
+  const source=document.createElement("span");
+  source.textContent=meta;
+  const sequence=document.createElement("span");
+  sequence.textContent=String($("conversationLog").children.length+1).padStart(2,"0");
+  metaRow.append(source,sequence);
+  const message=document.createElement("p");
+  message.className="recordBody";
+  message.textContent=body;
+  record.append(metaRow,message);
+  $("conversationLog").append(record);
+  requestAnimationFrame(scrollLog);
+  return record;
+}
+
+function updateActions(){
+  CHOICES.forEach(choice=>{
+    const button=$(choice+"Btn");
+    button.disabled=state.busy;
+    button.classList.remove("chosen");
+  });
+  updateProgress();
+}
+
+function showStep(){
+  state.busy=true;
+  updateHeader();
+  updateActions();
+  const thread=currentThread();
+  addRecord("incoming",thread.code+" / MSG "+(state.stepIndex+1),thread.incoming[state.stepIndex]);
+  setPresence("sending",t("readSending")(thread.label));
+  later(()=>{
+    setPresence("",t("readSent")(thread.label));
+    addRecord("receipt",t("readReceipt"),t("readSent")(thread.label));
+  },motion(520));
+  later(()=>{
+    state.busy=false;
+    updateActions();
+  },motion(900,150));
+}
+
+function applyHidden(choice){
+  const thread=currentThread();
+  const delta=DELTAS[thread.id][choice];
+  const hidden=state.hidden[state.threadIndex];
+  Object.keys(delta).forEach(key=>{ hidden[key]+=delta[key]; });
+  state.totals[choice]++;
+  state.counts[state.threadIndex][choice]++;
+  state.last[state.threadIndex]=choice;
+}
+
+function timingProfile(choice){
+  const hidden=state.hidden[state.threadIndex];
+  const pressure=Math.max(0,hidden.pressure);
+  const suspicion=Math.max(0,hidden.suspicion);
+  const distance=Math.max(0,-hidden.trust);
+  const tempo=Math.abs(hidden.tempo);
+  if(reduced) return {hold:90,type:90,react:120,dwell:160};
+  if(choice==="now") return {
+    hold:260,
+    type:720+Math.min(700,pressure*55+tempo*35),
+    react:380,
+    dwell:2300
+  };
+  if(choice==="wait") return {
+    hold:2700+Math.min(900,suspicion*75+tempo*45),
+    type:900+Math.min(800,(pressure+suspicion)*35),
+    react:520,
+    dwell:2500
+  };
+  return {
+    hold:1550+Math.min(900,pressure*55),
+    type:980+Math.min(900,suspicion*45+distance*60),
+    react:620,
+    dwell:2800
+  };
+}
+
+function playerReply(choice){
+  const thread=currentThread();
+  if(thread.id==="unknown"&&state.stepIndex===0&&choice==="now") return lang==="ko"?"누구세요?":"Who is this?";
+  return choice==="now"?t("replyNow"):t("replyWait");
+}
+
+function showPeerTyping(thread){
+  setPresence("typing",t("peerTyping")(thread.label));
+}
+
+function renderReaction(choice,profile){
+  const thread=currentThread();
+  const reaction=thread.reactions[choice][state.stepIndex];
+  if(reaction.silent){
+    setPresence("",t("readStays"));
+    addRecord("silence",thread.code+" / —",reaction.silent);
+  }else{
+    const body=reaction.prefix?reaction.prefix+" · "+reaction.text:reaction.text;
+    setPresence("",t("readSent")(thread.label));
+    addRecord("reaction",thread.code+" / REPLY",body);
+  }
+  later(advanceStep,profile.dwell);
+}
+
+function beginReaction(choice,profile){
+  const thread=currentThread();
+  const reaction=thread.reactions[choice][state.stepIndex];
+  if(!reaction.silent) showPeerTyping(thread);
+  later(()=>renderReaction(choice,profile),reaction.silent?motion(520):profile.type+profile.react);
+}
+
+function choose(choice){
+  if(!state||state.busy) return;
+  state.busy=true;
+  applyHidden(choice);
+  markProgress(choice);
+  updateActions();
+  const button=$(choice+"Btn");
+  button.classList.add("chosen");
+  const thread=currentThread();
+  const profile=timingProfile(choice);
+
+  if(choice==="now"){
+    setPresence("",t("readSent")(thread.label));
+    addRecord("outgoing choice-now",t("self")+" / NOW",playerReply(choice));
+    later(()=>beginReaction(choice,profile),profile.hold);
+    return;
+  }
+
+  if(choice==="wait"){
+    setPresence("typing",t("typingSent")(thread.label));
+    addRecord("receipt",t("self")+" / TYPING",t("typingSent")(thread.label));
+    later(()=>{
+      setPresence("canceled",t("typingGone"));
+      const last=$("conversationLog").lastElementChild;
+      if(last) last.querySelector(".recordBody").textContent=t("typingGone");
+    },Math.min(profile.hold-650,motion(1450)));
+    later(()=>{
+      addRecord("outgoing choice-wait",t("self")+" / WAIT",playerReply(choice));
+      beginReaction(choice,profile);
+    },profile.hold);
+    return;
+  }
+
+  setPresence("",t("readStays"));
+  addRecord("outgoing choice-ignore",t("self")+" / IGNORE",t("ignored"));
+  later(()=>beginReaction(choice,profile),profile.hold);
+}
+
+function endingChoice(index){
+  const counts=state.counts[index];
+  const max=Math.max(counts.now,counts.wait,counts.ignore);
+  const leaders=CHOICES.filter(choice=>counts[choice]===max);
+  if(leaders.length===1) return leaders[0];
+
+  const hidden=state.hidden[index];
+  const scores={
+    now:hidden.tempo+hidden.trust,
+    wait:-Math.abs(hidden.tempo)+Math.max(0,hidden.suspicion-hidden.pressure),
+    ignore:hidden.suspicion+hidden.pressure-hidden.trust
+  };
+  const best=Math.max(...leaders.map(choice=>scores[choice]));
+  const stateLeaders=leaders.filter(choice=>scores[choice]===best);
+  return stateLeaders.includes(state.last[index])?state.last[index]:stateLeaders[0];
+}
+
+function endingText(index){
+  const thread=threads()[index];
+  const choice=endingChoice(index);
+  return (thread.endings.common?thread.endings.common+" ":"")+thread.endings[choice];
+}
+
+function finishThread(){
+  const thread=currentThread();
+  const ending=endingText(state.threadIndex);
+  state.endings[state.threadIndex]=ending;
+  setPresence("",t("threadEnd"));
+  addRecord("ending",thread.code+" / END",ending);
+
+  if(state.threadIndex<2){
+    later(()=>{
+      state.threadIndex++;
+      state.stepIndex=0;
+      $("conversationLog").replaceChildren();
+      showStep();
+    },motion(3600,260));
+  }else{
+    later(showReport,motion(3800,300));
+  }
+}
+
+function advanceStep(){
+  if(state.stepIndex<2){
+    state.stepIndex++;
+    later(showStep,motion(650,120));
+  }else{
+    finishThread();
+  }
+}
+
+function renderReport(){
+  $("profileNow").textContent=state.totals.now;
+  $("profileWait").textContent=state.totals.wait;
+  $("profileIgnore").textContent=state.totals.ignore;
+  $("reportRun").textContent="R"+run+" · "+Math.round((Date.now()-state.startedAt)/1000)+"s";
+
+  const endings=$("reportEndings");
+  endings.replaceChildren();
+  threads().forEach((thread,index)=>{
+    const row=document.createElement("div");
+    row.className="endingRow";
+    const label=document.createElement("strong");
+    label.className="mono";
+    label.textContent=thread.code;
+    const text=document.createElement("p");
+    text.textContent=state.endings[index];
+    row.append(label,text);
+    endings.append(row);
+  });
+
+  const questions=$("reportQuestions");
+  questions.replaceChildren();
+  t("questions").forEach(line=>{
+    const p=document.createElement("p");
+    p.textContent=line;
+    questions.append(p);
+  });
+}
+
+function showReport(){
+  state.busy=true;
+  updateActions();
+  renderReport();
+  setGameActive(false);
+  $("report").hidden=false;
+  $("report").setAttribute("aria-hidden","false");
+  $("againBtn").focus();
+}
+
+function initRun(){
+  clearTimers();
+  state=makeState();
+  run++;
+  buildProgress();
+  $("conversationLog").replaceChildren();
+  renderStaticText();
+  updateHeader();
+  showStep();
+}
+
+$("nowBtn").onclick=()=>choose("now");
+$("waitBtn").onclick=()=>choose("wait");
+$("ignoreBtn").onclick=()=>choose("ignore");
+$("langBtn").onclick=()=>{
+  lang=lang==="ko"?"en":"ko";
+  renderStaticText();
+};
+$("startBtn").onclick=()=>{
+  $("cover").hidden=true;
+  $("cover").setAttribute("aria-hidden","true");
+  setGameActive(true);
+  initRun();
+  $("game").focus();
+};
+$("againBtn").onclick=()=>{
+  $("report").hidden=true;
+  $("report").setAttribute("aria-hidden","true");
+  setGameActive(true);
+  initRun();
+  $("game").focus();
+};
+
+renderStaticText();
+</script>
+</body>
+</html>

@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#eaf0ec">
+<title>번호표 · NOW SERVING · Toy 03</title>
+<script src="../build-meta.js" defer></script>
+<style>
+  :root{
+    --paper:#eaf0ec;
+    --ink:#121514;
+    --act:#2457d6;
+    --bad:#e5482d;
+    --hold:#d7ee3a;
+    --ok:#167a55;
+    --dim:#747d79;
+    --rule:rgba(18,21,20,.25);
+    --build-meta-color:var(--dim);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ width:100%; height:100%; background:var(--paper); }
+  body{
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    font-size:16px;
+    line-height:1.4;
+    overflow:hidden;
+  }
+  button{ font:inherit; }
+  .mono{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-variant-numeric:tabular-nums;
+  }
+
+  #game{
+    width:min(100%,520px);
+    height:100dvh;
+    margin:0 auto;
+    display:grid;
+    grid-template-rows:auto auto minmax(0,1fr) auto;
+    padding:calc(8px + env(safe-area-inset-top)) 12px 0;
+  }
+
+  /* header / goal gradient */
+  #statusHead{ border-top:7px solid var(--ink); border-bottom:1px solid var(--ink); padding:7px 0 8px; }
+  .topline{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .toyid{ color:var(--dim); font-size:11px; font-weight:800; }
+  #clock{ font-size:28px; line-height:1; font-weight:900; }
+  #closeState{ margin-top:2px; color:var(--bad); font-size:10px; font-weight:900; text-align:right; min-height:14px; }
+  .track{ position:relative; height:7px; margin-top:8px; background:rgba(18,21,20,.12); overflow:hidden; }
+  #timeFill{ position:absolute; inset:0 auto 0 0; width:0; background:var(--act); transition:width 160ms linear; }
+  .track::after{ content:"18:00"; position:absolute; right:2px; top:-2px; color:var(--paper); font:800 8px/1 ui-monospace,monospace; mix-blend-mode:difference; }
+  .counts{ display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--rule); margin-top:8px; }
+  .count{ padding-top:6px; color:var(--dim); font-size:10px; text-align:center; }
+  .count + .count{ border-left:1px solid var(--rule); }
+  .count b{ display:block; color:var(--ink); font-size:16px; line-height:1.1; }
+  #eventLine{
+    min-height:24px;
+    padding:5px 3px 0;
+    color:var(--act);
+    font-size:11px;
+    font-weight:800;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  /* two service windows */
+  #windows{ display:grid; grid-template-columns:1fr 1fr; border-bottom:2px solid var(--ink); }
+  .window{ position:relative; min-height:82px; padding:7px 9px 8px; overflow:hidden; }
+  .window + .window{ border-left:1px solid var(--ink); }
+  .windowHead{ display:flex; justify-content:space-between; color:var(--dim); font-size:10px; font-weight:800; }
+  .windowNo{ margin-top:4px; font-size:28px; line-height:1; font-weight:900; }
+  .windowState{ margin-top:3px; color:var(--dim); font-size:10px; font-weight:700; }
+  .serviceTrack{ position:absolute; left:9px; right:9px; bottom:7px; height:3px; background:rgba(18,21,20,.12); }
+  .serviceFill{ height:100%; width:0; background:var(--ok); transition:width 160ms linear; }
+  .window.calling .windowNo{ color:var(--act); animation:signal 520ms steps(2,end) infinite; }
+  .window.serving .windowNo{ color:var(--ok); }
+  @keyframes signal{ 50%{ opacity:.28; } }
+
+  /* queue as thermal ticket strip */
+  #queueArea{ min-height:0; overflow-y:auto; overscroll-behavior:contain; padding-bottom:8px; }
+  .queueHead{
+    position:sticky;
+    top:0;
+    z-index:2;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    background:var(--paper);
+    border-bottom:1px solid var(--ink);
+    padding:8px 2px 6px;
+  }
+  .queueHead h2{ font-size:12px; font-weight:900; }
+  #nextCall{ color:var(--dim); font-size:10px; }
+  #queue{ list-style:none; }
+  .ticket{
+    position:relative;
+    min-height:49px;
+    border-bottom:1px dashed var(--rule);
+    animation:ticketIn 140ms linear;
+  }
+  .ticketBtn{
+    width:100%;
+    min-height:49px;
+    display:grid;
+    grid-template-columns:34px 62px minmax(0,1fr) auto;
+    gap:8px;
+    align-items:center;
+    background:transparent;
+    border:0;
+    color:var(--ink);
+    text-align:left;
+    padding:4px 4px;
+  }
+  .ticketBtn:focus-visible{ outline:2px solid var(--act); outline-offset:-2px; }
+  .ticketBtn[aria-pressed="true"]{ background:rgba(36,87,214,.08); }
+  .ticketBtn[aria-pressed="true"]::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:5px;
+    bottom:5px;
+    width:4px;
+    background:var(--act);
+  }
+  .pos{ color:var(--dim); font-size:10px; text-align:center; }
+  .ticketNo{ font-size:25px; line-height:1; font-weight:900; }
+  .ticketState{ color:var(--dim); font-size:11px; font-weight:700; }
+  .ticketWait{ color:var(--dim); font-size:10px; text-align:right; white-space:nowrap; }
+  .ticket.jump{ background:var(--hold); animation:jumpIn 180ms linear; }
+  .ticket.recalled .ticketNo{ color:var(--bad); }
+  .ticket.priority .ticketNo{ color:var(--act); }
+  .ghost{
+    min-height:42px;
+    display:grid;
+    grid-template-columns:34px 62px 1fr;
+    gap:8px;
+    align-items:center;
+    border-bottom:1px dashed var(--rule);
+    color:var(--dim);
+    opacity:.62;
+    padding:2px 4px;
+    background:rgba(18,21,20,.025);
+  }
+  .ghostNo{ font-size:18px; text-decoration:line-through; }
+  .ghostGap{ height:1px; border-top:1px dashed var(--bad); }
+  @keyframes ticketIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  @keyframes jumpIn{ from{ transform:translateY(16px); } to{ transform:none; } }
+
+  /* stable action bar */
+  #actions{
+    border-top:2px solid var(--ink);
+    background:var(--paper);
+    padding:8px 0 calc(8px + env(safe-area-inset-bottom));
+  }
+  .actionGrid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+  .action{
+    min-width:0;
+    min-height:58px;
+    border:1px solid var(--ink);
+    border-radius:2px;
+    background:var(--paper);
+    color:var(--ink);
+    padding:5px 2px;
+    font-weight:900;
+  }
+  .action strong{ display:block; font-size:13px; }
+  .action small{
+    display:block;
+    margin-top:3px;
+    color:var(--dim);
+    font:700 9px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .action:active:not(:disabled){ background:var(--ink); color:var(--paper); }
+  .action:active:not(:disabled) small{ color:var(--paper); }
+  .action:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+  .action:disabled{ color:var(--dim); border-style:dashed; opacity:.48; }
+  #callBtn:not(:disabled){ border-color:var(--act); color:var(--act); }
+  #voidBtn:not(:disabled){ border-color:var(--bad); color:var(--bad); }
+  #firstBtn:not(:disabled){ border-bottom:5px solid var(--hold); }
+  #callBtn.autoPress{ animation:autoPress 700ms linear; }
+  @keyframes autoPress{ 45%{ background:var(--act); color:var(--paper); transform:translateY(2px); } }
+
+  /* cover and report */
+  .overlay{
+    position:fixed;
+    inset:0;
+    z-index:10;
+    overflow-y:auto;
+    background:var(--paper);
+  }
+  .overlayInner{
+    width:min(100%,460px);
+    min-height:100%;
+    margin:0 auto;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:24px 18px calc(24px + env(safe-area-inset-bottom));
+  }
+  .sheet{ border-top:8px solid var(--ink); border-bottom:2px solid var(--ink); padding:12px 0 16px; }
+  .sheetTop{ display:flex; justify-content:space-between; align-items:center; color:var(--dim); font-size:11px; font-weight:800; }
+  #langBtn{
+    min-width:44px;
+    min-height:32px;
+    background:transparent;
+    border:1px solid var(--ink);
+    border-radius:2px;
+    color:var(--ink);
+    font-size:11px;
+    font-weight:900;
+  }
+  #langBtn:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+  .sheet h1{ margin-top:18px; font-size:32px; line-height:1; font-weight:950; }
+  .introLine{ margin-top:15px; max-width:28ch; font-size:18px; line-height:1.45; font-weight:800; }
+  .question{
+    margin-top:20px;
+    border-left:5px solid var(--hold);
+    padding:8px 12px;
+    font-size:14px;
+    line-height:1.55;
+    font-weight:750;
+  }
+  .start{
+    width:100%;
+    min-height:58px;
+    margin-top:22px;
+    border:1px solid var(--ink);
+    border-radius:2px;
+    background:var(--ink);
+    color:var(--paper);
+    font-size:16px;
+    font-weight:900;
+  }
+  .start:focus-visible{ outline:2px solid var(--act); outline-offset:3px; }
+
+  .reportTitle{ margin-top:18px; font-size:28px; font-weight:950; }
+  .reportGrid{ display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--ink); border-bottom:1px solid var(--ink); margin-top:14px; }
+  .reportCell{ padding:12px 4px; text-align:center; }
+  .reportCell + .reportCell{ border-left:1px solid var(--rule); }
+  .reportCell span{ display:block; color:var(--dim); font-size:10px; }
+  .reportCell b{ display:block; margin-top:3px; font-size:25px; }
+  .reportFacts{ padding:12px 2px; border-bottom:1px solid var(--ink); font-size:13px; line-height:1.8; }
+  #residue{ margin-top:12px; padding:10px 12px; border-left:5px solid var(--bad); font-size:13px; line-height:1.55; }
+  .questions{ margin-top:14px; padding-top:12px; border-top:1px dashed var(--rule); color:var(--dim); font-size:12px; line-height:1.9; }
+  .note{ margin-top:10px; color:var(--dim); font-size:10px; text-align:center; }
+
+  @media (max-width:370px){
+    #game{ padding-left:9px; padding-right:9px; }
+    .ticketBtn{ grid-template-columns:28px 54px minmax(0,1fr) auto; gap:6px; }
+    .ticketNo{ font-size:23px; }
+    .action strong{ font-size:12px; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{ animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+  }
+</style>
+</head>
+<body>
+<main id="game" inert aria-hidden="true">
+  <header id="statusHead">
+    <div class="topline">
+      <div>
+        <div class="toyid">NOW SERVING / TOY 03</div>
+        <div id="clock" class="mono">17:30</div>
+      </div>
+      <div id="closeState"></div>
+    </div>
+    <div class="track" aria-label="마감까지 진행"><div id="timeFill"></div></div>
+    <div class="counts">
+      <div class="count"><span id="waitLabel"></span><b id="waitCount" class="mono">0</b></div>
+      <div class="count"><span id="servedLabel"></span><b id="servedCount" class="mono">0</b></div>
+      <div class="count"><span id="voidLabel"></span><b id="voidCount" class="mono">0</b></div>
+    </div>
+    <div id="eventLine" aria-live="polite"></div>
+  </header>
+
+  <section id="windows" aria-label="창구">
+    <div class="window" id="windowA">
+      <div class="windowHead"><span>A</span><span class="windowLabel"></span></div>
+      <div class="windowNo mono">--</div>
+      <div class="windowState"></div>
+      <div class="serviceTrack"><div class="serviceFill"></div></div>
+    </div>
+    <div class="window" id="windowB">
+      <div class="windowHead"><span>B</span><span class="windowLabel"></span></div>
+      <div class="windowNo mono">--</div>
+      <div class="windowState"></div>
+      <div class="serviceTrack"><div class="serviceFill"></div></div>
+    </div>
+  </section>
+
+  <section id="queueArea" aria-labelledby="queueTitle">
+    <div class="queueHead">
+      <h2 id="queueTitle"></h2>
+      <div id="nextCall" class="mono"></div>
+    </div>
+    <ol id="queue"></ol>
+  </section>
+
+  <footer id="actions">
+    <div class="actionGrid">
+      <button class="action" id="callBtn"><strong></strong><small></small></button>
+      <button class="action" id="holdBtn"><strong></strong><small></small></button>
+      <button class="action" id="firstBtn"><strong></strong><small></small></button>
+      <button class="action" id="voidBtn"><strong></strong><small></small></button>
+    </div>
+  </footer>
+</main>
+
+<section class="overlay" id="cover" role="dialog" aria-modal="true" aria-labelledby="coverTitle">
+  <div class="overlayInner">
+    <div class="sheet">
+      <div class="sheetTop"><span>NOW SERVING · TOY 03/04</span><button id="langBtn">EN</button></div>
+      <h1 id="coverTitle"></h1>
+      <p class="introLine" id="introLine"></p>
+      <div class="question" id="coverQuestion"></div>
+      <button class="start" id="startBtn"></button>
+      <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
+    </div>
+  </div>
+</section>
+
+<section class="overlay" id="report" role="dialog" aria-modal="true" aria-labelledby="reportTitle" aria-hidden="true" hidden>
+  <div class="overlayInner">
+    <div class="sheet">
+      <div class="sheetTop"><span id="reportTag"></span><span id="reportRun" class="mono"></span></div>
+      <h2 class="reportTitle" id="reportTitle"></h2>
+      <div class="reportGrid">
+        <div class="reportCell"><span id="reportServedLabel"></span><b id="reportServed" class="mono"></b></div>
+        <div class="reportCell"><span id="reportHoldLabel"></span><b id="reportHold" class="mono"></b></div>
+        <div class="reportCell"><span id="reportVoidLabel"></span><b id="reportVoid" class="mono"></b></div>
+      </div>
+      <div class="reportFacts" id="reportFacts"></div>
+      <div id="residue"></div>
+      <button class="start" id="againBtn"></button>
+      <div class="questions" id="reportQuestions"></div>
+      <div class="note" id="reportNote"></div>
+      <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
+    </div>
+  </div>
+</section>
+
+<script>
+"use strict";
+
+const START=1050, CLOSE=1080, TICK_MS=3000;
+const fmt=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+const $=id=>document.getElementById(id);
+
+let lang="ko";
+const L={
+  ko:{
+    title:"번호표",
+    intro:"당신은 평생 번호표를 뽑아왔다. 오늘은 부르는 쪽이다.",
+    question:"숫자와 순서와 빈자리만으로 — 사람이 보이는가?",
+    start:"창구 열기",
+    waiting:"대기", served:"처리", voided:"결번", held:"보류",
+    queue:"대기열", next:n=>n?"NEXT "+n:"NEXT --",
+    window:"창구", open:"비어 있음", coming:"이동 중", serving:"처리 중", recalled:"재호출", priority:"우선", closed:"마감",
+    call:"호출", hold:"보류", first:"우선", void:"결번",
+    demo:"첫 호출 · 자동", yourTurn:"두 번째부터 당신 차례.",
+    arrived:n=>n+"번 도착", called:(n,w)=>n+"번 → "+w+" 창구", completed:n=>n+"번 처리 완료",
+    noResponse:n=>n+"번 응답 없음", jumped:n=>n+"번이 앞으로 들어왔다", heldEvent:n=>n+"번을 뒤로 보냈다",
+    firstEvent:n=>n+"번을 앞으로 불렀다", voidEvent:n=>n+"번 결번 — 빈자리가 남았다",
+    overtime:n=>"마감 +"+n+"분", closing:"18:00 · 마감",
+    reportTag:"CLOSING REPORT", reportTitle:"마감 보고", average:"평균 대기", longest:"가장 오래 기다린 번호", minutes:"분",
+    residue:"마감 정리 — 대기석에 47번 번호표가 남아 있었다.",
+    again:"⟳ 한 판 더",
+    questions:"Q1. 한 번 더? (이유도)<br>Q2. 기억에 남는 번호가 있는가 — 왜?<br>Q3. 운영의 리듬이었나, 알바의 피로였나",
+    note:"저장되지 않습니다"
+  },
+  en:{
+    title:"NOW SERVING",
+    intro:"All your life you took a number. Tonight, you call them.",
+    question:"Numbers, order, absences — can you see the people?",
+    start:"OPEN THE WINDOWS",
+    waiting:"waiting", served:"served", voided:"void", held:"hold",
+    queue:"QUEUE", next:n=>n?"NEXT "+n:"NEXT --",
+    window:"window", open:"open", coming:"coming", serving:"serving", recalled:"recalled", priority:"first", closed:"closed",
+    call:"CALL", hold:"HOLD", first:"FIRST", void:"VOID",
+    demo:"first call · automatic", yourTurn:"The second call is yours.",
+    arrived:n=>"ticket "+n+" arrived", called:(n,w)=>n+" → window "+w, completed:n=>n+" complete",
+    noResponse:n=>n+" did not answer", jumped:n=>n+" moved to the front", heldEvent:n=>n+" moved to the back",
+    firstEvent:n=>n+" called forward", voidEvent:n=>n+" void — an empty place remains",
+    overtime:n=>"CLOSE +"+n+"m", closing:"18:00 · CLOSED",
+    reportTag:"CLOSING REPORT", reportTitle:"SHIFT CLOSED", average:"average wait", longest:"longest waiting ticket", minutes:"min",
+    residue:"Closing sweep — ticket 47 was left on the bench.",
+    again:"⟳ One more",
+    questions:"Q1. One more? Why?<br>Q2. Which number stayed with you — why?<br>Q3. A rhythm of operation, or the fatigue of a shift?",
+    note:"nothing is saved"
+  }
+};
+const t=k=>L[lang][k];
+
+const DEFINITIONS=[
+  {id:"38",arrival:START,kind:"normal",travel:1,service:4},
+  {id:"41",arrival:START,kind:"slow",travel:3,service:7},
+  {id:"43",arrival:START,kind:"normal",travel:1,service:4},
+  {id:"45",arrival:START+3,kind:"normal",travel:1,service:4},
+  {id:"47",arrival:START+5,kind:"noShow",travel:2,service:0},
+  {id:"49",arrival:START+8,kind:"normal",travel:1,service:4},
+  {id:"52",arrival:START+10,kind:"jumper",travel:1,service:4},
+  {id:"54",arrival:START+14,kind:"fast",travel:1,service:2},
+  {id:"56",arrival:START+18,kind:"normal",travel:1,service:4},
+  {id:"58",arrival:START+25,kind:"closing",travel:1,service:7}
+];
+
+let tickets, queue, windows, now, selected, running, demo, closed, finished;
+let servedCount, voidCount, holdCount, run=0, interval=null, timers=[], t0=0, lastEffect=null;
+
+function makeTickets(){
+  return Object.fromEntries(DEFINITIONS.map(d=>[d.id,{
+    ...d, state:"future", calls:0, calmed:false, arrivedAt:d.arrival,
+    calledAt:null, resolvedAt:null, resolution:null, lastJump:d.arrival
+  }]));
+}
+
+function setGameActive(active){
+  $("game").inert=!active;
+  $("game").setAttribute("aria-hidden",active?"false":"true");
+}
+
+function clearRunTimers(){
+  clearInterval(interval);
+  interval=null;
+  timers.forEach(clearTimeout);
+  timers=[];
+}
+
+function later(fn,ms){
+  const id=setTimeout(fn,ms);
+  timers.push(id);
+  return id;
+}
+
+function actualIds(){
+  return queue.filter(entry=>typeof entry==="string");
+}
+
+function frontId(){
+  return actualIds()[0]||null;
+}
+
+function firstFreeWindow(){
+  return windows.find(w=>!w.ticket)||null;
+}
+
+function selectedTicket(){
+  return selected&&tickets[selected]&&queue.includes(selected)?tickets[selected]:null;
+}
+
+function setEvent(message,effect,id){
+  $("eventLine").textContent=message;
+  lastEffect={type:effect,id:id};
+}
+
+function renderStaticText(){
+  $("coverTitle").textContent=t("title");
+  $("introLine").textContent=t("intro");
+  $("coverQuestion").textContent=t("question");
+  $("startBtn").textContent=t("start");
+  $("langBtn").textContent=lang==="ko"?"EN":"KO";
+  $("waitLabel").textContent=t("waiting");
+  $("servedLabel").textContent=t("served");
+  $("voidLabel").textContent=t("voided");
+  $("queueTitle").textContent=t("queue");
+  document.querySelectorAll(".windowLabel").forEach(node=>node.textContent=t("window"));
+}
+
+function renderHeader(){
+  $("clock").textContent=fmt(now);
+  const progress=Math.max(0,Math.min(1,(now-START)/(CLOSE-START)));
+  $("timeFill").style.width=(progress*100)+"%";
+  $("waitCount").textContent=actualIds().length;
+  $("servedCount").textContent=servedCount;
+  $("voidCount").textContent=voidCount;
+  $("nextCall").textContent=t("next")(frontId());
+  if(now>CLOSE) $("closeState").textContent=t("overtime")(now-CLOSE);
+  else if(closed) $("closeState").textContent=t("closing");
+  else $("closeState").textContent="";
+}
+
+function stateLabel(ticket){
+  if(ticket.state==="recalled"||ticket.state==="exhausted") return t("recalled")+" "+ticket.calls+"/2";
+  if(ticket.state==="held") return t("held");
+  if(ticket.state==="priority") return t("priority");
+  return t("waiting");
+}
+
+function renderQueue(){
+  const list=$("queue");
+  list.innerHTML="";
+  let position=0;
+  queue.forEach(entry=>{
+    if(typeof entry!=="string"){
+      const ghost=document.createElement("li");
+      ghost.className="ghost";
+      ghost.innerHTML="<span class='pos mono'>·</span><span class='ghostNo mono'>"+entry.id+"</span><span class='ghostGap'></span>";
+      list.appendChild(ghost);
+      return;
+    }
+    position++;
+    const ticket=tickets[entry];
+    const li=document.createElement("li");
+    let cls="ticket";
+    if(lastEffect&&lastEffect.id===entry&&lastEffect.type==="jump") cls+=" jump";
+    if(ticket.state==="recalled"||ticket.state==="exhausted") cls+=" recalled";
+    if(ticket.state==="priority") cls+=" priority";
+    li.className=cls;
+    const button=document.createElement("button");
+    button.type="button";
+    button.className="ticketBtn";
+    button.dataset.id=entry;
+    button.setAttribute("aria-pressed",selected===entry?"true":"false");
+    button.setAttribute("aria-label",entry+" · "+stateLabel(ticket)+" · "+Math.max(0,now-ticket.arrivedAt)+" "+t("minutes"));
+    button.innerHTML=
+      "<span class='pos mono'>"+String(position).padStart(2,"0")+"</span>"+
+      "<span class='ticketNo mono'>"+entry+"</span>"+
+      "<span class='ticketState'>"+stateLabel(ticket)+"</span>"+
+      "<span class='ticketWait mono' data-wait-id='"+entry+"'>"+Math.max(0,now-ticket.arrivedAt)+"m</span>";
+    button.onclick=()=>select(entry);
+    li.appendChild(button);
+    list.appendChild(li);
+  });
+  lastEffect=null;
+  renderHeader();
+  updateControls();
+}
+
+function updateWaitLabels(){
+  document.querySelectorAll("[data-wait-id]").forEach(node=>{
+    const ticket=tickets[node.dataset.waitId];
+    node.textContent=Math.max(0,now-ticket.arrivedAt)+"m";
+    const button=node.closest("button");
+    if(button) button.setAttribute("aria-label",ticket.id+" · "+stateLabel(ticket)+" · "+Math.max(0,now-ticket.arrivedAt)+" "+t("minutes"));
+  });
+}
+
+function renderWindows(){
+  windows.forEach(w=>{
+    const root=$("window"+w.id);
+    const no=root.querySelector(".windowNo");
+    const state=root.querySelector(".windowState");
+    const fill=root.querySelector(".serviceFill");
+    root.className="window";
+    if(!w.ticket){
+      no.textContent="--";
+      state.textContent=t("open");
+      fill.style.width="0";
+      return;
+    }
+    no.textContent=w.ticket;
+    root.classList.add(w.phase==="serving"?"serving":"calling");
+    state.textContent=w.phase==="serving"?t("serving"):t("coming");
+    const done=w.total?Math.max(0,Math.min(1,1-w.remaining/w.total)):0;
+    fill.style.width=(done*100)+"%";
+  });
+}
+
+function updateControls(){
+  const call=$("callBtn"), hold=$("holdBtn"), first=$("firstBtn"), voidBtn=$("voidBtn");
+  const front=frontId();
+  const free=firstFreeWindow();
+  const target=selectedTicket();
+  const frontBlocked=front&&tickets[front].state==="exhausted";
+  const targetBlocked=target&&target.state==="exhausted";
+  const locked=!running||demo||closed||finished;
+
+  call.querySelector("strong").textContent=t("call");
+  call.querySelector("small").textContent=front&&free?front+" → "+free.id:"--";
+  call.disabled=locked||!front||!free||frontBlocked;
+
+  hold.querySelector("strong").textContent=t("hold");
+  hold.querySelector("small").textContent=target?target.id:"--";
+  hold.disabled=locked||!target||targetBlocked||actualIds().length<2;
+
+  first.querySelector("strong").textContent=t("first");
+  first.querySelector("small").textContent=target?target.id:"--";
+  const alreadyFirst=target&&front===target.id;
+  const canCalm=target&&target.id==="52"&&!target.calmed;
+  first.disabled=locked||!target||targetBlocked||(alreadyFirst&&!canCalm);
+
+  voidBtn.querySelector("strong").textContent=t("void");
+  voidBtn.querySelector("small").textContent=target?target.id:"--";
+  voidBtn.disabled=locked||!target;
+}
+
+function select(id){
+  if(!running||demo||closed||!queue.includes(id)) return;
+  selected=id;
+  document.querySelectorAll(".ticketBtn").forEach(button=>{
+    button.setAttribute("aria-pressed",button.dataset.id===id?"true":"false");
+  });
+  updateControls();
+}
+
+function removeFromQueue(id){
+  const index=queue.indexOf(id);
+  if(index>=0) queue.splice(index,1);
+  return index;
+}
+
+function chooseNextSelection(){
+  if(selected&&!queue.includes(selected)) selected=frontId();
+  if(!selected) selected=frontId();
+}
+
+function callNext(){
+  const id=frontId();
+  const w=firstFreeWindow();
+  if(!id||!w||!running||closed) return;
+  const ticket=tickets[id];
+  if(ticket.state==="exhausted") return;
+  removeFromQueue(id);
+  ticket.calls++;
+  ticket.calledAt=now;
+  ticket.state="coming";
+  if(id==="52") ticket.calmed=true;
+  w.ticket=id;
+  w.phase="coming";
+  w.remaining=ticket.travel;
+  w.total=ticket.travel;
+  setEvent(t("called")(id,w.id),"call",id);
+  chooseNextSelection();
+  renderQueue();
+  renderWindows();
+}
+
+function holdSelected(){
+  const ticket=selectedTicket();
+  if(!ticket||actualIds().length<2) return;
+  removeFromQueue(ticket.id);
+  queue.push(ticket.id);
+  ticket.state="held";
+  holdCount++;
+  setEvent(t("heldEvent")(ticket.id),"hold",ticket.id);
+  selected=ticket.id;
+  renderQueue();
+}
+
+function firstSelected(){
+  const ticket=selectedTicket();
+  if(!ticket) return;
+  removeFromQueue(ticket.id);
+  queue.unshift(ticket.id);
+  ticket.state="priority";
+  if(ticket.id==="52") ticket.calmed=true;
+  setEvent(t("firstEvent")(ticket.id),"jump",ticket.id);
+  selected=ticket.id;
+  renderQueue();
+}
+
+function voidSelected(){
+  const ticket=selectedTicket();
+  if(!ticket) return;
+  voidTicket(ticket.id,"manual");
+}
+
+function voidTicket(id,reason){
+  const ticket=tickets[id];
+  const index=removeFromQueue(id);
+  if(index<0) return;
+  queue.splice(index,0,{ghost:true,id:id,reason:reason});
+  ticket.state=reason==="closed"?"closed":"void";
+  ticket.resolution="void";
+  ticket.resolvedAt=now;
+  voidCount++;
+  setEvent(t("voidEvent")(id),"void",id);
+  if(selected===id) selected=frontId();
+  renderQueue();
+}
+
+function addArrival(id){
+  const ticket=tickets[id];
+  if(ticket.state!=="future") return;
+  ticket.state="waiting";
+  if(id==="52"){
+    queue.unshift(id);
+    selected=id;
+    ticket.lastJump=now;
+    setEvent(t("jumped")(id),"jump",id);
+  }else{
+    queue.push(id);
+    if(!selected) selected=id;
+    setEvent(t("arrived")(id),"arrival",id);
+  }
+  renderQueue();
+}
+
+function processWindows(){
+  windows.forEach(w=>{
+    if(!w.ticket) return;
+    const ticket=tickets[w.ticket];
+    w.remaining--;
+    if(w.remaining>0) return;
+    if(w.phase==="coming"){
+      if(ticket.kind==="noShow"){
+        const id=ticket.id;
+        w.ticket=null;
+        w.phase="idle";
+        if(closed){
+          ticket.state="closed";
+          ticket.resolution="void";
+          ticket.resolvedAt=now;
+          voidCount++;
+          queue.push({ghost:true,id:id,reason:"closed"});
+          setEvent(t("voidEvent")(id),"void",id);
+        }else{
+          ticket.state=ticket.calls>=2?"exhausted":"recalled";
+          queue.unshift(id);
+          selected=id;
+          setEvent(t("noResponse")(id),"jump",id);
+        }
+        renderQueue();
+      }else{
+        w.phase="serving";
+        w.remaining=ticket.service;
+        w.total=ticket.service;
+        ticket.state="serving";
+      }
+    }else{
+      const id=ticket.id;
+      ticket.state="served";
+      ticket.resolution="served";
+      ticket.resolvedAt=now;
+      servedCount++;
+      w.ticket=null;
+      w.phase="idle";
+      setEvent(t("completed")(id),"done",id);
+    }
+  });
+  renderWindows();
+}
+
+function nudge52(){
+  const ticket=tickets["52"];
+  if(!ticket||ticket.calmed||!queue.includes("52")) return;
+  if(now-ticket.lastJump<3) return;
+  ticket.lastJump=now;
+  removeFromQueue("52");
+  queue.unshift("52");
+  ticket.state="priority";
+  selected="52";
+  setEvent(t("jumped")("52"),"jump","52");
+  renderQueue();
+}
+
+function closeWaiting(){
+  const ids=actualIds().slice();
+  ids.forEach(id=>voidTicket(id,"closed"));
+  selected=null;
+}
+
+function maybeFinish(){
+  if(!closed||finished) return;
+  const busy=windows.some(w=>w.ticket);
+  if(!busy&&actualIds().length===0){
+    finished=true;
+    running=false;
+    clearInterval(interval);
+    interval=null;
+    later(showReport,520);
+  }
+}
+
+function tick(){
+  if(!running||demo||finished) return;
+  now++;
+  DEFINITIONS.forEach(d=>{
+    if(d.id!=="38"&&d.arrival===now) addArrival(d.id);
+  });
+  processWindows();
+  nudge52();
+  if(now>=CLOSE&&!closed){
+    closed=true;
+    $("closeState").textContent=t("closing");
+    closeWaiting();
+  }
+  updateWaitLabels();
+  renderHeader();
+  updateControls();
+  maybeFinish();
+}
+
+function runDemo(){
+  demo=true;
+  running=false;
+  $("eventLine").textContent=t("demo");
+  updateControls();
+  $("callBtn").querySelector("strong").textContent=t("call");
+  $("callBtn").querySelector("small").textContent="38 → A";
+  $("callBtn").classList.add("autoPress");
+  const short=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const a=short?80:620, b=short?160:1280, c=short?260:2050;
+
+  later(()=>{
+    $("callBtn").classList.remove("autoPress");
+    removeFromQueue("38");
+    tickets["38"].state="serving";
+    windows[0]={id:"A",ticket:"38",phase:"serving",remaining:1,total:1};
+    selected="41";
+    renderQueue();
+    renderWindows();
+  },a);
+
+  later(()=>{
+    tickets["38"].state="served";
+    tickets["38"].resolution="served";
+    tickets["38"].resolvedAt=START;
+    servedCount=1;
+    windows[0]={id:"A",ticket:null,phase:"idle",remaining:0,total:0};
+    setEvent(t("completed")("38"),"done","38");
+    renderHeader();
+    renderWindows();
+  },b);
+
+  later(()=>{
+    demo=false;
+    running=true;
+    selected=frontId();
+    $("eventLine").textContent=t("yourTurn");
+    renderQueue();
+    interval=setInterval(tick,TICK_MS);
+  },c);
+}
+
+function initRun(){
+  clearRunTimers();
+  tickets=makeTickets();
+  queue=["38","41","43"];
+  windows=[
+    {id:"A",ticket:null,phase:"idle",remaining:0,total:0},
+    {id:"B",ticket:null,phase:"idle",remaining:0,total:0}
+  ];
+  now=START;
+  selected="38";
+  running=false;
+  demo=false;
+  closed=false;
+  finished=false;
+  servedCount=0;
+  voidCount=0;
+  holdCount=0;
+  lastEffect=null;
+  t0=Date.now();
+  run++;
+  renderStaticText();
+  renderQueue();
+  renderWindows();
+  runDemo();
+}
+
+function showReport(){
+  setGameActive(false);
+  $("reportTag").textContent=t("reportTag");
+  $("reportRun").textContent="R"+run+" · "+fmt(now);
+  $("reportTitle").textContent=t("reportTitle");
+  $("reportServedLabel").textContent=t("served");
+  $("reportHoldLabel").textContent=t("held");
+  $("reportVoidLabel").textContent=t("voided");
+  $("reportServed").textContent=servedCount;
+  $("reportHold").textContent=holdCount;
+  $("reportVoid").textContent=voidCount;
+
+  const resolved=Object.values(tickets).filter(ticket=>ticket.resolvedAt!=null);
+  const served=resolved.filter(ticket=>ticket.resolution==="served");
+  const waitOf=ticket=>Math.max(0,(ticket.calledAt??ticket.resolvedAt)-ticket.arrivedAt);
+  const average=served.length?Math.round(served.reduce((sum,ticket)=>sum+waitOf(ticket),0)/served.length):0;
+  const longest=resolved.slice().sort((a,b)=>waitOf(b)-waitOf(a))[0];
+  $("reportFacts").innerHTML=
+    t("average")+" <b class='mono'>"+average+" "+t("minutes")+"</b><br>"+
+    t("longest")+" <b class='mono'>"+(longest?longest.id:"--")+"</b><br>"+
+    "<span class='mono'>"+Math.round((Date.now()-t0)/1000)+"s · "+fmt(START)+"→"+fmt(now)+"</span>";
+  $("residue").textContent=t("residue");
+  $("againBtn").textContent=t("again");
+  $("reportQuestions").innerHTML=t("questions");
+  $("reportNote").textContent=t("note");
+  $("report").hidden=false;
+  $("report").setAttribute("aria-hidden","false");
+  $("againBtn").focus();
+}
+
+$("callBtn").onclick=callNext;
+$("holdBtn").onclick=holdSelected;
+$("firstBtn").onclick=firstSelected;
+$("voidBtn").onclick=voidSelected;
+$("langBtn").onclick=()=>{
+  lang=lang==="ko"?"en":"ko";
+  renderStaticText();
+};
+$("startBtn").onclick=()=>{
+  $("cover").hidden=true;
+  $("cover").setAttribute("aria-hidden","true");
+  setGameActive(true);
+  initRun();
+};
+$("againBtn").onclick=()=>{
+  $("report").hidden=true;
+  $("report").setAttribute("aria-hidden","true");
+  setGameActive(true);
+  initRun();
+};
+
+renderStaticText();
+</script>
+</body>
+</html>

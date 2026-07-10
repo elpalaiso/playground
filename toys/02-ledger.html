@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>닫힌 창구의 잉여 · Toy 02</title>
+<style>
+  /* == LIVE FORM 시각 시스템 v1 (Codex 55 방향) ============================
+     차가운 종이 / 잉크 / 행동 청색 / 이상 적색 / 미결 형광 / 비활성 회색
+     모서리 0~4px · 1px 구획선 · 그림자/글로우/그라디언트 없음
+     모션 = 인쇄·정정·밀림 (90~140ms linear) ================================ */
+  :root{
+    --paper:#EEF1EE; --ink:#151719; --act:#2457D6; --bad:#E5482D;
+    --hold:#D7EE3A; --dim:#8B9294; --rule:rgba(21,23,25,.28);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    background:var(--paper); color:var(--ink); font-size:16px; line-height:1.45;
+  }
+  .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-variant-numeric:tabular-nums; }
+  #app{ max-width:480px; margin:0 auto; min-height:100dvh; display:flex; flex-direction:column;
+        padding:calc(10px + env(safe-area-inset-top)) 14px calc(96px + env(safe-area-inset-bottom)); }
+
+  /* -- 서식 머리 -- */
+  #formHead{ border-bottom:2px solid var(--ink); padding-bottom:8px; }
+  #formHead .t1{ font-size:12px; font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+  #formHead .t2{ font-size:12px; color:var(--dim); margin-top:2px; }
+  #dayline{ display:flex; justify-content:space-between; align-items:baseline; padding:10px 0 6px; }
+  #dayNum{ font-size:28px; font-weight:800; }
+  #runNo{ font-size:12px; color:var(--dim); }
+
+  /* -- 장부 표 -- */
+  table{ width:100%; border-collapse:collapse; }
+  th{ font-size:12px; color:var(--dim); font-weight:700; text-align:left; border-bottom:1px solid var(--rule); padding:6px 4px; }
+  td{ font-size:16px; padding:0 4px; border-bottom:1px solid var(--rule); }
+  tr.row{ cursor:pointer; }
+  tr.row td{ padding-top:13px; padding-bottom:13px; }
+  tr.row .no{ font-weight:700; }
+  tr.dimrow td{ color:var(--dim); }
+  tr.row:focus-visible{ outline:2px solid var(--act); outline-offset:-2px; }
+  /* 선택 = 정정선 */
+  tr.sel td{ position:relative; }
+  tr.sel td:first-child::before{ content:"→"; color:var(--act); font-weight:800; position:absolute; left:-2px; top:50%; transform:translateY(-58%); font-size:12px; }
+  .corr{ position:relative; }
+  .corr::after{ content:""; position:absolute; left:0; right:0; bottom:6px; height:2px; background:var(--act); animation:draw 120ms linear; }
+  @keyframes draw{ from{ right:100%; } to{ right:0; } }
+  /* 도장 */
+  .stampbox{ display:inline-block; border:1.5px solid var(--act); color:var(--act); font-size:12px; font-weight:800;
+             padding:1px 6px; transform:rotate(-2deg); margin-left:6px; border-radius:2px; white-space:nowrap; }
+
+  /* -- 실측 -- */
+  #checkHead{ font-size:12px; font-weight:700; color:var(--dim); margin:16px 0 2px; }
+  .chk{ font-size:16px; padding:9px 4px; border-bottom:1px dashed var(--rule); display:flex; gap:8px; align-items:baseline; }
+  .chk .slot{ font-weight:700; }
+  .chk.bad{ background:var(--hold); }
+  .chk.bad .bang{ color:var(--bad); font-weight:900; }
+  .chk.resolved{ background:none; }
+  .chk .p4{ font-size:28px; font-weight:800; color:var(--bad); line-height:1; }
+
+  /* -- 지시·기록 -- */
+  #guide{ font-size:12px; color:var(--dim); text-align:center; margin:14px 0 4px; min-height:16px; }
+  .recline{ font-size:12px; padding:7px 4px 0; color:var(--ink); }
+  .recline b{ color:var(--act); }
+  #dayrec{ margin-top:6px; border-top:1px solid var(--ink); }
+
+  /* -- 인쇄 모션 -- */
+  .pr{ animation:printin 120ms linear both; }
+  @keyframes printin{ from{ opacity:0; transform:translateY(-3px);} to{ opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce){ .pr{ animation:none; } .corr::after{ animation:none; } }
+
+  /* -- 도장 막대 (하단 고정) -- */
+  #stampbar{ position:fixed; left:0; right:0; bottom:0; background:var(--paper); border-top:1px solid var(--ink);
+             padding:10px 14px calc(10px + env(safe-area-inset-bottom)); }
+  #stampbar .inner{ max-width:480px; margin:0 auto; display:flex; gap:8px; }
+  .stampbtn{ flex:1; min-height:52px; background:var(--paper); border:1px solid var(--ink); border-radius:2px;
+             font-size:16px; font-weight:800; color:var(--ink); }
+  .stampbtn small{ display:block; font-size:12px; font-weight:600; color:var(--dim); }
+  .stampbtn:active{ background:var(--ink); color:var(--paper); }
+  .stampbtn:active small{ color:var(--paper); }
+  .stampbtn:disabled{ color:var(--dim); border:1px dashed var(--rule); }
+  .stampbtn:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+  .wide{ width:100%; min-height:52px; background:var(--ink); color:var(--paper); border:1px solid var(--ink);
+         border-radius:2px; font-size:16px; font-weight:800; }
+  .wide:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+
+  /* -- 오버레이 (표지/최종 선택/보고) -- */
+  .ovl{ position:fixed; inset:0; background:var(--paper); z-index:10; overflow-y:auto; }
+  .ovl .inner{ max-width:480px; margin:0 auto; min-height:100%; display:flex; flex-direction:column; justify-content:center;
+               padding:24px 18px calc(24px + env(safe-area-inset-bottom)); }
+  .cover{ border:1px solid var(--ink); border-radius:4px; padding:22px 16px; }
+  .cover .tag{ font-size:12px; color:var(--dim); font-weight:700; display:flex; justify-content:space-between; }
+  .cover h1{ font-size:28px; font-weight:800; margin:10px 0 2px; }
+  .cover .sub{ font-size:12px; color:var(--dim); }
+  .qbox{ border:1px dashed var(--act); border-radius:2px; padding:10px 12px; margin:16px 0; font-size:16px; font-weight:700; }
+  .qbox small{ display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:4px; }
+  .rules{ font-size:12px; color:var(--dim); line-height:1.7; margin-bottom:16px; }
+  #langBtn{ background:none; border:1px solid var(--ink); border-radius:2px; font-size:12px; font-weight:700; padding:3px 8px; }
+  #langBtn:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+
+  .choice{ width:100%; min-height:52px; margin-top:8px; background:var(--paper); border:1px solid var(--ink); border-radius:2px;
+           font-size:16px; font-weight:800; color:var(--ink); text-align:left; padding:0 12px; }
+  .choice small{ display:block; font-size:12px; font-weight:600; color:var(--dim); }
+  .choice:active{ background:var(--ink); color:var(--paper); }
+  .choice:active small{ color:var(--paper); }
+  .choice:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+
+  .reveal{ border-top:2px solid var(--ink); border-bottom:2px solid var(--ink); padding:14px 2px; font-size:16px; line-height:1.7; margin:14px 0; }
+  .reveal .p4big{ font-size:28px; font-weight:800; color:var(--bad); }
+  .verdict{ font-size:16px; font-weight:800; margin:12px 0 4px; }
+  .stats{ font-size:12px; color:var(--dim); line-height:1.8; }
+  .qq{ border-top:1px dashed var(--rule); margin-top:12px; padding-top:10px; font-size:12px; line-height:1.9; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="formHead">
+    <div class="t1"><span id="fTitle"></span><span class="mono">00:40</span></div>
+    <div class="t2" id="fSub"></div>
+  </div>
+  <div id="dayline">
+    <span id="dayNum" class="mono pr"></span>
+    <span id="runNo" class="mono"></span>
+  </div>
+  <div id="ledger"></div>
+  <div id="checkHead"></div>
+  <div id="checks"></div>
+  <div id="guide"></div>
+  <div id="dayrec"></div>
+</div>
+
+<div id="stampbar"><div class="inner" id="stampInner"></div></div>
+
+<!-- 표지 -->
+<div class="ovl" id="cover">
+  <div class="inner">
+    <div class="cover">
+      <div class="tag"><span>TOY 02 / 04</span><button id="langBtn">EN</button></div>
+      <h1 id="cvTitle"></h1>
+      <div class="sub" id="cvSub"></div>
+      <div class="qbox" id="cvQ"></div>
+      <div class="rules" id="cvRules"></div>
+      <button class="wide" id="startBtn"></button>
+    </div>
+  </div>
+</div>
+
+<!-- 최종 보고 -->
+<div class="ovl" id="report" style="display:none">
+  <div class="inner">
+    <div class="cover">
+      <div class="tag"><span id="rpTag"></span><span class="mono" id="rpRun"></span></div>
+      <div class="reveal" id="rpReveal"></div>
+      <div class="verdict" id="rpVerdict"></div>
+      <div class="stats" id="rpStats"></div>
+      <button class="wide" id="againBtn" style="margin-top:14px"></button>
+      <div class="qq" id="rpQQ"></div>
+      <div class="stats" id="rpNote" style="margin-top:8px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ===== 언어 (표지에서 전환, 플레이 중 단일 언어 — Codex 3.2) ===== */
+let lang="ko";
+const L={
+ko:{
+  fTitle:"유실물 보관 대장", fSub:"지하 환승역 · 야간 창구 · 마감 대조",
+  day:d=>d+"일차", run:r=>"R"+r,
+  cols:["접수","물건","칸","상태"],
+  checkHead:"실측 · 마감 후 보관 칸 확인",
+  guideSelect:"이상한 행을 눌러 정정선을 그으시오",
+  guideStamp:"처리 도장을 찍으시오",
+  guideNext:"기록되었다",
+  stamps:{reg:["등록","새 항목으로"], hold:["보류","미기록 상자"], link:["묶기","같은 사건으로"], pass:["인계","다음 근무자"]},
+  next:"다음 날 →", lastday:"최종 처리로 →",
+  rec:{reg:no=>no+" 항목을 정식 등록했다.", hold:no=>no+" 곁의 이상을 미기록 상자에 두었다.",
+       link:no=>no+" 을(를) 반복 흔적과 한 사건으로 묶었다.", pass:no=>no+" 건을 다음 근무자에게 넘겼다."},
+  finalHead:"사흘째 마감 — 이 반복을 어떻게 남길 것인가",
+  finals:{official:["공식 기록","+4 반복을 사건으로 올린다"], lock:["미기록함 잠금","오늘도 조용히 덮는다"],
+          order:["반복 묶기","물건이 아니라 순서를 기록한다"], shift:["인계","판단을 넘긴다"]},
+  reveal:"<span class='p4big'>+4</span> 는 보관 토큰이 아니라 직원용 「하루 연장」 표식이었다.<br>누군가, 찾으러 올 수 없는 사람의 물건을 — 매일 하루씩 더 남겨두고 있었다.",
+  verdicts:{official:"당신은 잉여를 사건으로 만들었다.", lock:"당신은 잉여를 하루 더 남겼다.",
+            order:"당신은 물건보다, 남긴 사람의 순서를 기록했다.", shift:"당신은 다음 근무자에게 불가능한 +4를 넘겼다."},
+  rpTag:"마감 보고 · CLOSING REPORT", again:"⟳ 한 판 더",
+  stats:(seq,dur)=>"도장 기록: "+seq+"<br>소요: "+dur+"초",
+  qq:"Q1. 한 번 더 해보고 싶은가?<br>Q2. 누가, 왜 남겼을 것 같은가?<br>Q3. 대조는 어느 쪽이었나 — 재미있는 불안 / 일 같은 피로?",
+  note:"저장되지 않습니다",
+  cvTitle:"닫힌 창구의 잉여", cvSub:"지하 환승역 · 야간 분실물 창구",
+  cvQ:"검증 질문<br>“장부 대조 — 맞으면 안도, 안 맞으면 불안.<br>그 사이클은 재미인가, 일인가?”",
+  cvRules:"사흘 밤. 매일 마감 뒤 장부 세 줄과 실제 칸을 대조한다.<br>이상한 행에 정정선을 긋고, 도장을 하나 찍는다.<br>정답 채점은 없다 — 무엇을 보존했는지가 남을 뿐.",
+  start:"대조 시작"
+},
+en:{
+  fTitle:"LOST PROPERTY LEDGER", fSub:"Underground interchange · night window · closing check",
+  day:d=>"DAY "+d, run:r=>"R"+r,
+  cols:["No.","Item","Slot","Status"],
+  checkHead:"SHELF CHECK · after closing",
+  guideSelect:"Tap the odd row to draw a correction line",
+  guideStamp:"Apply one processing stamp",
+  guideNext:"Recorded.",
+  stamps:{reg:["FILE","as new entry"], hold:["HOLD","unlogged box"], link:["LINK","same case"], pass:["PASS","next shift"]},
+  next:"Next night →", lastday:"Final decision →",
+  rec:{reg:no=>"Filed "+no+" officially.", hold:no=>"Placed the oddity near "+no+" in the unlogged box.",
+       link:no=>"Linked "+no+" with the recurring traces.", pass:no=>"Passed case "+no+" to the next shift."},
+  finalHead:"Third closing — how will you leave this recurrence?",
+  finals:{official:["OFFICIAL RECORD","report the +4 pattern"], lock:["LOCK THE BOX","cover it quietly again"],
+          order:["LINK THE PATTERN","record the order, not the items"], shift:["HAND OVER","pass the judgment"]},
+  reveal:"<span class='p4big'>+4</span> was never a deposit token. It is the staff mark for “extend one day.”<br>Someone has been keeping the belongings of a person who cannot come back — one more day, every day.",
+  verdicts:{official:"You made the surplus a case.", lock:"You let the surplus stay one more day.",
+            order:"You recorded not the items, but the order of the one who left them.", shift:"You passed the impossible +4 to the next shift."},
+  rpTag:"CLOSING REPORT", again:"⟳ One more",
+  stats:(seq,dur)=>"Stamps: "+seq+"<br>Time: "+dur+"s",
+  qq:"Q1. Do you want another run?<br>Q2. Who left these — and why, do you think?<br>Q3. The checking felt like — thrilling unease / tiring work?",
+  note:"nothing is saved",
+  cvTitle:"SURPLUS AT THE CLOSED WINDOW", cvSub:"Underground interchange · night lost-and-found",
+  cvQ:"The question<br>“Ledger checking — relief when it matches, unease when it doesn't.<br>Is that cycle fun, or labor?”",
+  cvRules:"Three nights. After each closing, compare three ledger rows with the shelves.<br>Draw a correction line on the odd row, apply one stamp.<br>No scoring — only what you chose to preserve remains.",
+  start:"START THE CHECK"
+}};
+const t=k=>L[lang][k];
+
+/* ===== 고정 3일 데이터 (Codex 55 §2.1 — 분기 없음) ===== */
+const DAYS=[
+ { rows:[
+    {no:"041", item:{ko:"파란 우산",en:"Blue umbrella"}, slot:"B-2", st:{ko:"보관",en:"stored"}},
+    {no:"042", item:{ko:"회색 장갑",en:"Gray gloves"}, slot:"A-1", st:{ko:"인계 완료",en:"handed over"}, dim:true},
+    {no:"043", item:{ko:"낡은 교통카드",en:"Worn transit card"}, slot:"C-4", st:{ko:"보관",en:"stored"}}],
+   checks:[
+    {slot:"C-4", tx:{ko:"같은 교통카드가 2개 — 하나는 접수 태그가 없다", en:"Two identical transit cards — one has no intake tag"}, bad:true},
+    {slot:"", tx:{ko:"둘 다 같은 스티커 자국", en:"Both bear the same sticker mark"}, bad:false},
+    {slot:"", tx:{ko:"마감 집계", en:"Till count"}, bad:true, p4:true}] },
+ { rows:[
+    {no:"044", item:{ko:"검은 목도리",en:"Black scarf"}, slot:"B-1", st:{ko:"보관",en:"stored"}},
+    {no:"045", item:{ko:"작은 열쇠",en:"Small key"}, slot:"C-1", st:{ko:"보관",en:"stored"}},
+    {no:"046", item:{ko:"접힌 메모",en:"Folded note"}, slot:"D-3", st:{ko:"보관",en:"stored"}}],
+   checks:[
+    {slot:"D-3", tx:{ko:"접힌 메모 안에서 — 적힌 글자는 없다", en:"Inside the folded note — no writing at all"}, bad:true, p4:true},
+    {slot:"", tx:{ko:"겉면에 어제의 카드와 같은 스티커 자국", en:"On its face, the same sticker mark as yesterday's card"}, bad:false}] },
+ { rows:[
+    {no:"047", item:{ko:"빈 지갑",en:"Empty wallet"}, slot:"A-3", st:{ko:"보관",en:"stored"}},
+    {no:"048", item:{ko:"아이 장갑 한 짝",en:"One child's glove"}, slot:"B-4", st:{ko:"보관",en:"stored"}},
+    {no:"049", item:{ko:"보라색 번호표",en:"Purple claim tag"}, slot:"C-2", st:{ko:"보관",en:"stored"}}],
+   checks:[
+    {slot:"A-3", tx:{ko:"빈 지갑 안에 — 어제의 작은 열쇠(045)가 함께 있다", en:"Inside the empty wallet — with yesterday's small key (045)"}, bad:true, p4:true},
+    {slot:"C-2", tx:{ko:"번호표 뒷면에 047이 한 번 더 찍혀 있다", en:"On the tag's back, 047 is printed once more"}, bad:true}] }
+];
+
+/* ===== 상태 ===== */
+let day=0, phase="print", sel=null, seq=[], run=0, t0=0;
+
+const $=id=>document.getElementById(id);
+function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
+function printSeq(nodes,box,done){ // 인쇄 모션: 140ms 간격
+  let i=0;
+  (function next(){
+    if(i>=nodes.length){ if(done)done(); return; }
+    nodes[i].classList.add("pr"); box.appendChild(nodes[i]); i++; setTimeout(next,140);
+  })();
+}
+
+/* ===== 화면 구성 ===== */
+function renderStatic(){
+  $("fTitle").textContent=t("fTitle"); $("fSub").textContent=t("fSub");
+  $("cvTitle").textContent=t("cvTitle"); $("cvSub").textContent=t("cvSub");
+  $("cvQ").innerHTML=t("cvQ"); $("cvRules").innerHTML=t("cvRules");
+  $("startBtn").textContent=t("start");
+  $("langBtn").textContent= lang==="ko" ? "EN" : "KO";
+}
+function startDay(){
+  phase="print"; sel=null;
+  $("dayNum").textContent=t("day")(day+1);
+  $("runNo").textContent=t("run")(run);
+  $("guide").textContent=""; $("dayrec").innerHTML=""; $("checks").innerHTML=""; $("checkHead").textContent="";
+  renderStampbar(true);
+  // 장부 표
+  const D=DAYS[day];
+  const tb=el("table","", "<thead><tr>"+t("cols").map(c=>"<th>"+c+"</th>").join("")+"</tr></thead>");
+  const tbody=el("tbody");
+  tb.appendChild(tbody);
+  $("ledger").innerHTML=""; $("ledger").appendChild(tb);
+  const rows=D.rows.map(r=>{
+    const tr=el("tr","row"+(r.dim?" dimrow":""));
+    tr.tabIndex=0; tr.dataset.no=r.no;
+    tr.innerHTML="<td class='no mono'>"+r.no+"</td><td>"+r.item[lang]+"</td><td class='mono'>"+r.slot+"</td><td>"+r.st[lang]+"</td>";
+    tr.onclick=()=>pickRow(tr,r);
+    tr.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); pickRow(tr,r);} };
+    return tr;
+  });
+  printSeq(rows,tbody,()=>{
+    $("checkHead").textContent=t("checkHead");
+    const chks=D.checks.map(c=>{
+      const d=el("div","chk"+(c.bad?" bad":""));
+      d.innerHTML=(c.bad?"<span class='bang'>!</span>":"<span style='color:var(--dim)'>·</span>")
+        +(c.slot?"<span class='slot mono'>"+c.slot+"</span>":"")
+        +"<span>"+c.tx[lang]+(c.p4?" <span class='p4 mono'>+4</span>":"")+"</span>";
+      return d;
+    });
+    printSeq(chks,$("checks"),()=>{ phase="select"; $("guide").textContent=t("guideSelect"); });
+  });
+}
+function pickRow(tr,r){
+  if(phase!=="select") return;
+  document.querySelectorAll("tr.sel").forEach(x=>{ x.classList.remove("sel"); x.querySelectorAll("td").forEach(td=>td.classList.remove("corr")); });
+  tr.classList.add("sel");
+  tr.querySelectorAll("td").forEach(td=>td.classList.add("corr"));
+  sel=r; phase="stamp"; $("guide").textContent=t("guideStamp");
+  renderStampbar(false);
+}
+function renderStampbar(disabled){
+  const bar=$("stampInner"); bar.innerHTML="";
+  ["reg","hold","link","pass"].forEach(k=>{
+    const b=el("button","stampbtn", t("stamps")[k][0]+"<small>"+t("stamps")[k][1]+"</small>");
+    b.disabled=disabled||phase==="print"||phase==="done";
+    b.onclick=()=>stamp(k);
+    bar.appendChild(b);
+  });
+}
+function stamp(k){
+  if(phase!=="stamp"||!sel) return;
+  phase="done";
+  seq.push(t("day")(day+1)+" "+sel.no+"["+t("stamps")[k][0]+"]");
+  // 도장 자국
+  const tr=document.querySelector("tr.sel td:nth-child(2)");
+  if(tr) tr.appendChild(el("span","stampbox",t("stamps")[k][0]));
+  // 해결된 이상 표시(형광 해제)
+  document.querySelectorAll(".chk.bad").forEach(c=>c.classList.add("resolved"));
+  // 기록 줄
+  const rec=el("div","recline pr","<b>"+t("stamps")[k][0]+"</b> — "+t("rec")[k](sel.no));
+  $("dayrec").appendChild(rec);
+  $("guide").textContent=t("guideNext");
+  renderStampbar(true);
+  // 다음 버튼
+  const btn=el("button","wide pr", day<2 ? t("next") : t("lastday"));
+  btn.style.marginTop="10px";
+  btn.onclick=()=>{ day<2 ? (day++, startDay()) : finalChoice(); };
+  $("dayrec").appendChild(btn);
+}
+
+/* ===== 최종 선택 → 반전 → 보고 ===== */
+function finalChoice(){
+  const box=$("dayrec"); box.innerHTML="";
+  $("guide").textContent="";
+  const head=el("div","recline","<b>"+t("finalHead")+"</b>");
+  box.appendChild(head);
+  const keys=["official","lock","order","shift"];
+  const btns=keys.map(k=>{
+    const b=el("button","choice", t("finals")[k][0]+"<small>"+t("finals")[k][1]+"</small>");
+    b.onclick=()=>{ seq.push("["+t("finals")[k][0]+"]"); report(k); };
+    return b;
+  });
+  printSeq(btns,box);
+}
+function report(k){
+  const dur=Math.round((Date.now()-t0)/1000);
+  $("rpTag").textContent=t("rpTag"); $("rpRun").textContent=t("run")(run);
+  $("rpReveal").innerHTML=t("reveal");
+  $("rpVerdict").textContent=t("verdicts")[k];
+  $("rpStats").innerHTML=t("stats")(seq.join(" → "),dur);
+  $("againBtn").textContent=t("again");
+  $("rpQQ").innerHTML=t("qq"); $("rpNote").textContent=t("note");
+  $("report").style.display="block";
+}
+
+/* ===== 시작/재시작 ===== */
+function newRun(){ day=0; seq=[]; run++; t0=Date.now(); startDay(); }
+$("langBtn").onclick=()=>{ lang=(lang==="ko"?"en":"ko"); renderStatic(); };
+$("startBtn").onclick=()=>{ $("cover").style.display="none"; newRun(); };
+$("againBtn").onclick=()=>{ $("report").style.display="none"; newRun(); };
+renderStatic(); renderStampbar(true);
+</script>
+</body>
+</html>

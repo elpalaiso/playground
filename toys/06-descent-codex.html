@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#11130f">
+<title>심연은 아래로만 읽힌다 · Codex · Toy 06</title>
+<script src="../build-meta.js" defer></script>
+<style>
+:root{
+  --void:#11130f;--panel:#191c17;--paper:#f0eee3;--ink:#151713;--dim:#9ca196;
+  --rule:#4c5147;--cyan:#55c7cd;--coral:#ff6b57;--yellow:#e4dc58;--moss:#7fa777;
+  --commit-y:55vh;--build-meta-color:var(--dim)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--void);color-scheme:dark;overscroll-behavior-y:none}
+body{
+  min-width:320px;min-height:100dvh;overflow-x:hidden;background:var(--void);color:var(--paper);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  letter-spacing:0;-webkit-tap-highlight-color:transparent
+}
+button,a{font:inherit}button:focus-visible,a:focus-visible{outline:2px solid var(--yellow);outline-offset:3px}
+[hidden]{display:none!important}
+#app{width:min(100%,520px);min-height:100dvh;margin:0 auto;border-inline:1px solid #2e322b;background:var(--void)}
+#hud{
+  position:fixed;z-index:30;inset:0 0 auto;width:min(100%,520px);min-height:88px;margin:0 auto;
+  padding:calc(8px + env(safe-area-inset-top)) 10px 8px;display:grid;
+  grid-template-columns:50px minmax(0,1fr) 42px;gap:8px;align-items:center;
+  border-bottom:1px solid var(--rule);background:rgba(17,19,15,.96);backdrop-filter:blur(8px)
+}
+.depth-readout{align-self:stretch;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--rule)}
+.depth-readout small,.resource-label{color:var(--dim);font:800 9px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#depthValue{margin-top:2px;color:var(--yellow);font:900 27px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+#resourcePanel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.resource{min-width:0;display:grid;grid-template-columns:auto 1fr;gap:3px 5px;align-items:center}
+.resource-label{white-space:nowrap}.resource-value{justify-self:end;font:900 14px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.meter{grid-column:1/-1;height:4px;overflow:hidden;border:1px solid var(--rule);background:#0b0c0a}
+.meter span{display:block;height:100%;background:var(--cyan);transition:width .25s ease,background-color .25s ease}
+.resource.low .resource-value{color:var(--coral)}.resource.low .meter span{background:var(--coral)}
+.lang-button{width:42px;min-height:42px;border:1px solid var(--rule);border-radius:4px;background:var(--panel);color:var(--paper);font:900 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#commitLine{
+  position:fixed;z-index:24;left:50%;top:var(--commit-y);width:min(100%,520px);height:1px;
+  transform:translateX(-50%);pointer-events:none;background:var(--yellow);transition:top .3s ease
+}
+#commitLine:before{content:"";position:absolute;left:10px;top:-5px;width:9px;height:9px;background:var(--yellow);transform:rotate(45deg)}
+#commitLabel{position:absolute;right:10px;top:-19px;padding:2px 5px;background:var(--void);color:var(--yellow);font:800 9px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body:not(.playing) #hud,body:not(.playing) #commitLine,body:not(.playing) #returnButton{display:none}
+body.modal-open{overflow:hidden}
+#startScreen{min-height:94dvh;padding:calc(24px + env(safe-area-inset-top)) 20px 26px;display:flex;flex-direction:column;border-top:8px solid var(--paper)}
+.start-top{display:flex;justify-content:space-between;gap:16px;color:var(--dim);font:800 10px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.start-copy{margin-top:auto;padding-top:42px}.start-index{color:var(--yellow);font:900 13px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#startScreen h1{max-width:12ch;margin-top:12px;font-size:clamp(35px,11vw,58px);line-height:.98;font-weight:950;letter-spacing:0;text-wrap:balance}
+.start-sub{max-width:38ch;margin-top:16px;color:var(--dim);font-size:14px;line-height:1.65}
+.start-rule{margin-top:24px;border-block:1px solid var(--rule);padding:12px 0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.start-rule span{color:var(--dim);font:800 10px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.start-rule b{display:block;margin-bottom:3px;color:var(--paper);font-size:17px}
+#startButton{width:100%;min-height:62px;margin-top:18px;border:0;border-radius:6px;background:var(--yellow);color:var(--ink);font-size:16px;font-weight:950}
+.start-bottom{margin-top:auto;padding-top:28px;color:var(--dim);text-align:center;font:700 10px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#shaft{position:relative}
+.layer{position:relative;min-height:116dvh;overflow:hidden;border-top:1px solid #30342d;padding:calc(112px + env(safe-area-inset-top)) 20px 28px}
+.layer:before{content:attr(data-depth-label);position:absolute;top:102px;right:12px;color:rgba(240,238,227,.04);font:950 min(34vw,170px)/.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.layer.risk{border-top-color:rgba(255,107,87,.62)}.layer-head{position:relative;z-index:1;max-width:38ch}
+.layer-code{display:flex;align-items:center;gap:7px;color:var(--cyan);font:850 10px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.layer.risk .layer-code{color:var(--coral)}.layer-code:before{content:"";width:18px;height:2px;background:currentColor}
+.layer h2{margin-top:12px;font-size:24px;line-height:1.12;font-weight:900}.layer-premise{max-width:33ch;margin-top:9px;color:var(--dim);font-size:13px;line-height:1.55}
+.previous-note{white-space:pre-line;margin-top:14px;border-left:3px solid var(--coral);padding:7px 0 7px 10px;color:var(--paper);font-size:11px;line-height:1.5}
+.law-strip{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}.law-chip{border:1px solid var(--rule);padding:3px 6px;color:var(--moss);font:800 9px/1.25 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.choice-zone{position:absolute;z-index:3;top:68dvh;left:20px;right:20px}
+.choice-caption{display:flex;justify-content:space-between;gap:8px;margin-bottom:7px;color:var(--dim);font:800 9px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.choice-caption strong{color:var(--yellow)}.markers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;min-height:126px}
+.marker{
+  position:relative;min-width:0;min-height:126px;overflow:hidden;border:1px solid var(--rule);border-radius:6px;
+  padding:9px 7px 8px;display:flex;flex-direction:column;align-items:flex-start;background:#181b16;color:var(--paper);
+  text-align:left;transition:border-color .15s ease,background-color .15s ease,transform .15s ease
+}
+.marker:active{transform:translateY(2px)}.marker.selected{border-color:var(--yellow);background:#24251a}
+.marker.selected:after{content:"";position:absolute;inset:auto 0 0;height:4px;background:var(--yellow)}
+.marker-glyph{color:var(--cyan);font:900 24px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.relic-marker .marker-glyph{color:var(--yellow)}
+.marker-name{width:100%;margin-top:9px;font-size:12px;line-height:1.25;font-weight:850;overflow-wrap:anywhere}
+.marker-hint{margin-top:4px;color:var(--dim);font-size:9.5px;line-height:1.3}.marker-cost{width:100%;margin-top:auto;padding-top:7px;display:flex;flex-wrap:wrap;gap:3px;font:850 9px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.delta{border:1px solid var(--rule);padding:2px 3px;white-space:nowrap}.delta.plus{color:var(--moss)}.delta.minus{color:var(--coral)}
+.descent-cue{min-height:25px;padding-top:8px;color:var(--dim);text-align:center;font:800 10px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.descent-cue.armed{color:var(--yellow)}
+.resolved{min-height:126px;border-top:2px solid var(--yellow);padding:10px 2px}.resolved-tag{color:var(--yellow);font:850 9px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.resolved h3{margin-top:5px;font-size:17px;line-height:1.25}.resolved p{margin-top:6px;color:var(--dim);font-size:11px;line-height:1.5}
+.resolved .found-line{color:var(--paper);border-left:2px solid var(--cyan);padding-left:8px}
+.next-cue{position:absolute;left:20px;right:20px;bottom:16px;color:var(--dim);text-align:center;font:800 10px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.next-cue b{color:var(--yellow)}
+#returnButton{
+  position:fixed;z-index:28;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));width:min(calc(100% - 24px),496px);
+  min-height:54px;transform:translateX(-50%);border:1px solid var(--cyan);border-radius:6px;background:rgba(17,19,15,.96);
+  color:var(--paper);display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 10px;text-align:left
+}
+#returnButton .return-icon{color:var(--cyan);font:950 25px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#returnButton strong{display:block;font-size:12px;line-height:1.2}#returnButton small{display:block;margin-top:2px;color:var(--dim);font-size:9px;line-height:1.2}
+#returnDepth{color:var(--yellow);font:900 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}#returnButton.checkpoint{border-color:var(--yellow)}
+.overlay{position:fixed;z-index:60;inset:0;overflow-y:auto;display:flex;align-items:center;justify-content:center;padding:calc(18px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));background:rgba(9,10,8,.94)}
+.modal{width:min(100%,460px);max-height:calc(100dvh - 36px);overflow-y:auto;border-top:6px solid var(--paper);border-bottom:1px solid var(--rule);padding:18px 4px 8px}
+.modal-kicker{color:var(--dim);font:850 10px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.modal h2{margin-top:8px;font-size:27px;line-height:1.08;font-weight:950}
+.modal-copy{margin-top:10px;color:var(--dim);font-size:13px;line-height:1.6}.primary,.secondary{width:100%;min-height:54px;margin-top:10px;border-radius:6px;font-weight:900}
+.primary{border:0;background:var(--yellow);color:var(--ink)}.secondary{border:1px solid var(--rule);background:var(--panel);color:var(--paper)}
+.relic-reveal{margin:22px 0 14px;display:grid;grid-template-columns:92px minmax(0,1fr);gap:16px;align-items:center}
+#relicGlyph{width:92px;height:92px;border:1px solid currentColor;display:grid;place-items:center;color:var(--yellow);font:950 48px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#relicRarity{color:var(--dim);font:900 10px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}#relicName{margin-top:4px;font-size:22px;line-height:1.1;font-weight:950}
+#relicEffect{margin-top:7px;color:var(--moss);font-size:12px;line-height:1.45;font-weight:800}.resonance{margin-top:12px;border-top:1px solid var(--rule);padding-top:10px}
+.resonance-head{display:flex;justify-content:space-between;color:var(--dim);font:800 9px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.pips{display:flex;gap:5px;margin-top:7px}
+.pip{width:24px;height:5px;border:1px solid var(--rule)}.pip.on{border-color:var(--yellow);background:var(--yellow)}
+#lawUnlock{margin-top:12px;border-left:3px solid var(--moss);padding:7px 9px;color:var(--paper);font-size:11px;line-height:1.5}
+.return-stats{margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);border-block:1px solid var(--rule)}
+.return-stats div{padding:9px 4px;text-align:center;border-right:1px solid var(--rule)}.return-stats div:last-child{border-right:0}
+.return-stats small{display:block;color:var(--dim);font:750 8px/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.return-stats strong{display:block;margin-top:4px;font:900 18px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.sentence-picks{margin-top:18px}.sentence-picks h3{font-size:13px;line-height:1.4}.sentence-button{width:100%;min-height:52px;margin-top:7px;border:1px solid var(--rule);border-radius:4px;padding:9px 10px;background:var(--panel);color:var(--paper);text-align:left;font-size:11px;line-height:1.45}
+.sentence-button.selected{border-color:var(--cyan);color:var(--cyan)}.archive,.survey{margin-top:16px;border-top:1px solid var(--rule);padding-top:10px}
+.archive h3,.survey h3{color:var(--dim);font:850 9px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.survey h3{color:var(--yellow)}
+.archive ol,.survey ol{margin:7px 0 0 20px}.archive li,.survey li{margin-top:5px;color:var(--dim);font-size:10.5px;line-height:1.4}
+.result-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}.result-actions .primary{margin:0}
+.result-actions a{min-height:54px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:6px;color:var(--paper);text-decoration:none;font-weight:850}
+#resultAgain:disabled{opacity:.35}
+#toast{position:fixed;z-index:80;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));width:min(calc(100% - 32px),440px);transform:translateX(-50%) translateY(8px);border:1px solid var(--rule);padding:9px 10px;background:var(--paper);color:var(--ink);text-align:center;font-size:11px;font-weight:800;opacity:0;pointer-events:none;transition:.16s}
+#toast.show{opacity:1;transform:translateX(-50%)}
+@media(max-width:380px){
+  #hud{grid-template-columns:44px minmax(0,1fr) 38px;gap:5px;padding-inline:7px}.lang-button{width:38px;min-height:38px}#resourcePanel{gap:4px}
+  .resource-label{font-size:8px}.resource-value{font-size:12px}.layer{padding-inline:14px}.choice-zone{left:14px;right:14px}
+  .marker{padding-inline:5px}.marker-name{font-size:11px}.marker-hint{font-size:8.5px}.marker-cost{font-size:8px}.next-cue{left:14px;right:14px}
+}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hud" aria-label="탐사 상태">
+    <div class="depth-readout"><small data-copy="depth">심도</small><strong id="depthValue">00</strong></div>
+    <div id="resourcePanel" aria-live="polite">
+      <div class="resource" id="resRope"><span class="resource-label" data-copy="rope">밧줄</span><strong class="resource-value" id="ropeValue">9</strong><span class="meter"><span id="ropeMeter"></span></span></div>
+      <div class="resource" id="resLight"><span class="resource-label" data-copy="light">빛</span><strong class="resource-value" id="lightValue">9</strong><span class="meter"><span id="lightMeter"></span></span></div>
+      <div class="resource" id="resBreath"><span class="resource-label" data-copy="breath">호흡</span><strong class="resource-value" id="breathValue">9</strong><span class="meter"><span id="breathMeter"></span></span></div>
+    </div>
+    <button class="lang-button" id="langButton" type="button" aria-label="Switch language">EN</button>
+  </header>
+  <div id="commitLine" aria-hidden="true"><span id="commitLabel">COMMIT / 확정</span></div>
+  <main id="shaft">
+    <section id="startScreen">
+      <div class="start-top"><span>TOY 06 / CODEX BUILD</span><button class="lang-button" id="startLang" type="button" aria-label="Switch language">EN</button></div>
+      <div class="start-copy">
+        <div class="start-index">THE DESCENT / R01</div>
+        <h1 data-copy="title">심연은 아래로만 읽힌다</h1>
+        <p class="start-sub" data-copy="intro">표식 하나를 고른 뒤 아래로 밀어 확정한다. 12층 거점에서 돌아오거나, 닻을 끊고 15층까지 내려가라.</p>
+        <div class="start-rule"><span><b>⌁</b><span data-copy="rope">밧줄</span></span><span><b>✦</b><span data-copy="light">빛</span></span><span><b>○</b><span data-copy="breath">호흡</span></span></div>
+        <button id="startButton" type="button" data-copy="start">↓ 첫 지층으로</button>
+      </div>
+      <div class="start-bottom"><span data-copy="startFoot">한 번 내려간 문장은 다시 위로 읽을 수 없다.</span><div class="build-meta" data-build-meta>DEPLOY 확인 중</div></div>
+    </section>
+  </main>
+  <button id="returnButton" type="button" hidden>
+    <span class="return-icon">↑</span><span><strong data-copy="return">밧줄을 당긴다</strong><small data-copy="returnSub">본 문장 하나를 가져간다</small></span><span id="returnDepth">F00</span>
+  </button>
+</div>
+<div class="overlay" id="relicOverlay" role="dialog" aria-modal="true" aria-labelledby="relicName" hidden>
+  <div class="modal">
+    <div class="modal-kicker">SEAL BREAK / 봉인 해제</div>
+    <div class="relic-reveal"><div id="relicGlyph">⌁</div><div><div id="relicRarity">COMMON</div><h2 id="relicName">RELIC</h2><p id="relicEffect"></p></div></div>
+    <div class="resonance"><div class="resonance-head"><span data-copy="resonance">공명</span><span id="resonanceCount">1 / 3</span></div><div class="pips" id="resonancePips"><span class="pip"></span><span class="pip"></span><span class="pip"></span></div></div>
+    <div id="lawUnlock" hidden></div><button class="primary" id="equipButton" type="button" data-copy="equip">장착하고 계속</button>
+  </div>
+</div>
+<div class="overlay" id="returnOverlay" role="dialog" aria-modal="true" aria-labelledby="returnTitle" hidden>
+  <div class="modal">
+    <div class="modal-kicker">RETURN KNOT / 귀환 매듭</div><h2 id="returnTitle" data-copy="returnQuestion">여기서 돌아갈까?</h2><p class="modal-copy" id="returnCopy"></p>
+    <div class="return-stats"><div><small>FLOOR</small><strong id="confirmDepth">00</strong></div><div><small>⌁</small><strong id="confirmRope">0</strong></div><div><small>✦</small><strong id="confirmLight">0</strong></div><div><small>○</small><strong id="confirmBreath">0</strong></div></div>
+    <button class="primary" id="confirmReturn" type="button" data-copy="confirmReturn">↑ 당겨서 생환</button><button class="secondary" id="cancelReturn" type="button" data-copy="keepGoing">↓ 더 내려간다</button>
+  </div>
+</div>
+<div class="overlay" id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle" hidden>
+  <div class="modal">
+    <div class="modal-kicker" id="resultKicker">EXPEDITION REPORT</div><h2 id="resultTitle">RETURNED</h2><p class="modal-copy" id="resultCopy"></p>
+    <div class="return-stats"><div><small>FLOOR</small><strong id="resultDepth">00</strong></div><div><small>RELIC</small><strong id="resultRelics">0</strong></div><div><small>LAW</small><strong id="resultLaws">0</strong></div><div><small>TIME</small><strong id="resultTime">0:00</strong></div></div>
+    <div class="sentence-picks" id="sentencePicks"></div><div class="archive"><h3 data-copy="surfaceArchive">지상 기록실</h3><ol id="archiveList"></ol></div>
+    <div class="survey"><h3 data-copy="comparison">공통 비교 질문</h3><ol id="surveyList"></ol></div>
+    <div class="result-actions"><a href="../index.html" data-copy="toys">TOYS / 목록</a><button class="primary" id="resultAgain" type="button" data-copy="again">↻ 한 번 더</button></div>
+    <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+"use strict";
+const B=(ko,en)=>({ko,en});
+const COPY={
+ko:{title:"심연은 아래로만 읽힌다",intro:"표식 하나를 고른 뒤 아래로 밀어 확정한다. 12층 거점에서 돌아오거나, 닻을 끊고 15층까지 내려가라.",start:"↓ 첫 지층으로",startFoot:"한 번 내려간 문장은 다시 위로 읽을 수 없다.",depth:"심도",rope:"밧줄",light:"빛",breath:"호흡",return:"밧줄을 당긴다",returnSub:"본 문장 하나를 가져간다",choose:"표식 1개 선택",change:"확정선 전에는 바꿀 수 있다",armed:"선택됨 · 아래로 밀어 확정",pickFirst:"표식 하나를 먼저 선택하라",committed:"통과 완료",next:"다음 지층은 아래에 있다",resonance:"공명",equip:"장착하고 계속",returnQuestion:"여기서 돌아갈까?",confirmReturn:"↑ 당겨서 생환",keepGoing:"↓ 더 내려간다",surfaceArchive:"지상 기록실",comparison:"공통 비교 질문",toys:"TOYS / 목록",again:"↻ 한 번 더",sentencePick:"문장 하나만 지상으로 가져간다.",sentenceNeeded:"문장 하나를 골라야 다음 런으로 갈 수 있다.",noSentence:"가져갈 문장을 보기 전에 돌아왔다.",death:"실종",returned:"생환",checkpoint:"12층 안전 거점. 지금 돌아가면 기록을 보존한다. 계속 내려가면 닻을 끊는다.",bottom:"15층. 더 아래에는 문장이 아니라 당신의 서명만 있다.",runNote:"이전 탐사의 마지막 문장",law:"법칙 발현",sealed:"희귀도 봉인",survivedCopy:"밧줄은 끊기지 않았다. 본 문장 하나와 공명 하나가 다음 탐사에 남는다.",diedCopy:"자원 하나가 0이 됐다. 마지막 문장은 다음 탐사의 벽에 남는다."},
+en:{title:"THE ABYSS READS DOWNWARD",intro:"Choose one mark, then push it down across the line. Return at floor 12, or cut the anchor and descend to 15.",start:"↓ ENTER THE FIRST STRATUM",startFoot:"A sentence passed below can never be read above again.",depth:"DEPTH",rope:"ROPE",light:"LIGHT",breath:"BREATH",return:"PULL THE ROPE",returnSub:"carry one sentence home",choose:"CHOOSE 1 MARK",change:"change it before the commit line",armed:"ARMED · PUSH DOWN TO COMMIT",pickFirst:"CHOOSE A MARK FIRST",committed:"PASSAGE COMMITTED",next:"THE NEXT STRATUM IS BELOW",resonance:"RESONANCE",equip:"EQUIP AND CONTINUE",returnQuestion:"RETURN FROM HERE?",confirmReturn:"↑ PULL AND RETURN",keepGoing:"↓ DESCEND FURTHER",surfaceArchive:"SURFACE ARCHIVE",comparison:"SAME COMPARISON QUESTIONS",toys:"TOYS / INDEX",again:"↻ ONE MORE RUN",sentencePick:"Only one sentence can reach the surface.",sentenceNeeded:"Choose one sentence before the next run.",noSentence:"You returned before witnessing a sentence.",death:"MISSING",returned:"RETURNED",checkpoint:"Safe anchor at floor 12. Return to preserve the record, or descend and cut the anchor.",bottom:"Floor 15. Below this, there is no sentence. Only your signature.",runNote:"LAST SENTENCE FROM THE PREVIOUS RUN",law:"LAW AWAKENED",sealed:"RARITY SEALED",survivedCopy:"The rope held. One sentence and one resonance remain for the next expedition.",diedCopy:"A resource reached zero. Your last sentence remains on the wall of the next run."}
+};
+const C=(glyph,name,hint,delta,result,id,line,boon)=>({glyph,name,hint,delta,result,sentence:{id,boon,...line}});
+const E=(title,premise,choices)=>({title,premise,choices});
+const EVENTS=[
+E(B("입구의 흉터","THE ENTRANCE SCAR"),B("세 갈래 균열이 같은 아래를 가리킨다.","Three fissures point to the same below."),[
+C("⌁",B("흰 매듭","WHITE KNOT"),B("돌출부를 묶는다","tie the ledge"),{rope:-1,light:-1},B("매듭 뒤에서 오래된 필체가 드러났다.","Old handwriting surfaced behind the knot."),"s1",B("첫 탐사보다 9년 앞선 기록에 내 서명이 있다.","My signature appears in a record nine years before the first expedition."),"rope"),
+C("≈",B("물길","WATER VEIN"),B("빛을 담가 길을 본다","drown the light to see"),{light:-2,breath:1},B("검은 물이 폐의 박자를 대신 셌다.","Black water counted in place of your lungs."),"s2",B("우리가 밧줄을 내리기 전에 아래에서 먼저 당겼다.","Something below pulled before we lowered the rope."),"breath"),
+C("○",B("폐 모양 틈","LUNG-SHAPED GAP"),B("숨으로 몸을 접는다","fold yourself with breath"),{breath:-2,rope:1},B("틈의 안쪽에 당신 이름의 첫 글자가 있었다.","The first letter of your name was inside the gap."),"s3",B("빛을 끄자 벽이 내 이름을 이어 읽었다.","When the light died, the wall continued reading my name."),"light")]),
+E(B("눈먼 종의 다리","BRIDGE OF THE BLIND BELL"),B("발밑의 울림이 세 방향으로 갈라진다.","The note underfoot splits into three directions."),[
+C("╫",B("갈비뼈 길","RIB PATH"),B("단단한 곳만 밟는다","step only on bone"),{rope:-1,breath:-1},B("뼈마다 다른 귀환 시각이 새겨져 있었다.","Every rib carried a different return time."),"s4",B("12층 명부에는 출발이 아니라 귀환 시각만 적혀 있다.","The floor-12 ledger records returns, never departures."),"rope"),
+C("×",B("소등","BLACKOUT"),B("보지 않고 건넌다","cross without seeing"),{light:-2,rope:1},B("어둠 속에서 다리는 더 짧아졌다.","In darkness, the bridge became shorter."),"s5",B("다섯 번째 표식은 지도에 없고 내 기억에만 있다.","The fifth mark exists only in my memory, not on the map."),"light"),
+C("≋",B("메아리 응답","ANSWER THE ECHO"),B("내 이름을 되돌려준다","return your own name"),{breath:-2,light:1},B("메아리는 당신보다 먼저 대답을 끝냈다.","The echo finished answering before you began."),"s6",B("이 기록을 읽는 나는 세 번째다. 이름은 모두 같았다.","I am the third to read this. Every name was the same."),"breath")]),
+E(B("균사 계단","MYCELIAL STAIR"),B("계단이 호흡할 때마다 한 칸씩 늘어난다.","The stair grows one step whenever it breathes."),[
+C("⌁",B("포자 절단","CUT THE SPORES"),B("밧줄로 길을 가른다","part the path with rope"),{rope:-2,breath:1},B("잘린 균사가 글자 모양으로 오그라들었다.","The cut mycelium curled into letters."),"s7",B("심연은 발견된 적이 없다. 개봉된 적만 있다.","The abyss was never discovered. It was only opened."),"breath"),
+C("※",B("함께 호흡","BREATHE WITH IT"),B("계단의 박자에 맞춘다","match the stair's rhythm"),{breath:-1,light:-1},B("당신의 박자가 계단의 오래된 기억을 깨웠다.","Your rhythm woke the stair's old memory."),"s8",B("벽은 문장을 쓰지 않는다. 돌아갈 사람을 고른다.","The wall does not write sentences. It chooses who returns."),"light"),
+C("✦",B("태워서 통과","BURN THROUGH"),B("빛으로 계단을 굳힌다","harden it with light"),{light:-2,rope:1},B("재 아래에 동일한 발자국 열두 개가 남았다.","Twelve identical footprints waited under the ash."),"s9",B("모든 발자국은 내려가지만 그림자는 올라왔다.","Every footprint went down. Every shadow came up."),"rope")]),
+E(B("매달린 기록실","THE HANGING ARCHIVE"),B("읽지 않은 종이가 아래쪽으로만 펄럭인다.","Unread pages flutter only downward."),[
+C("⌑",B("거꾸로 읽기","READ UPSIDE DOWN"),B("빛을 나눠 쓴다","split the light"),{light:-1,breath:-1},B("문장의 끝이 시작보다 먼저 당신을 알아봤다.","The sentence ending recognized you before its beginning."),"s10",B("내 이름 뒤에는 늘 아직 태어나지 않은 날짜가 붙는다.","My name is always followed by a date that has not happened."),"light"),
+C("⌁",B("한 장 절취","TAKE ONE PAGE"),B("밧줄에 묶어 읽는다","bind it to the rope"),{rope:-1,light:1},B("종이는 가벼웠지만 밧줄은 아래로 더 당겨졌다.","The page was light, yet the rope pulled harder downward."),"s11",B("지상 기록실의 첫 장은 아직 여기 매달려 있다.","The first page of the surface archive still hangs here."),"rope"),
+C("○",B("이름 무시","IGNORE THE NAME"),B("읽지 않고 지나간다","pass without reading"),{breath:-2,rope:1},B("읽지 않은 이름이 당신의 뒤에서 발음됐다.","The unread name was spoken behind you."),"s12",B("돌아간 사람은 문장을 가져간 것이 아니라 빈칸을 남겼다.","Those who returned carried no sentence. They left a blank."),"breath")]),
+E(B("검은 대수층","THE BLACK AQUIFER"),B("세 개의 빛이 수면 아래로 서로 다르게 가라앉는다.","Three lights sink beneath the water at different speeds."),[
+C("○",B("한 모금","ONE DRAUGHT"),B("빛을 물과 바꾼다","trade light for breath"),{light:-2,breath:2},B("물은 당신이 아직 하지 않은 말을 기억했다.","The water remembered words you have not spoken."),"s13",B("나는 귀환 뒤에 이 문장을 처음 썼다. 그런데 이미 젖어 있었다.","I first wrote this after returning. It was already wet."),"breath"),
+C("⌁",B("수면에 다리","BRIDGE THE SURFACE"),B("밧줄을 넓게 편다","spread the rope wide"),{rope:-2,breath:-1},B("다리 한가운데에 위쪽을 향한 발자국이 있었다.","Upward-facing footprints crossed the bridge."),"s14",B("우리가 오르는 동안 심연은 더 빠르게 올라왔다.","While we climbed, the abyss rose faster."),"rope"),
+C("✦",B("거품 추적","FOLLOW THE BUBBLES"),B("작은 빛만 남긴다","keep only a small light"),{light:-1,breath:-1},B("거품이 터질 때마다 층수가 하나씩 지워졌다.","Each burst bubble erased a floor number."),"s15",B("깊이는 거리가 아니라 읽힌 문장의 수였다.","Depth was never distance. It was the number of sentences read."),"light")]),
+E(B("닻 앞의 문","THE DOOR BEFORE THE ANCHOR"),B("12층 거점 바로 위에서 문이 세 번 잠긴다.","The door above floor 12 locks itself three times."),[
+C("⌁",B("낡은 매듭","OLD KNOT"),B("이전 밧줄에 잇는다","join the older rope"),{rope:-1,light:-1},B("낡은 밧줄 끝에는 당신의 체온이 남아 있었다.","Your warmth remained on the end of the old rope."),"s16",B("나는 아직 내려오지 않았는데 내 밧줄은 이미 여기 있었다.","My rope was already here before I descended."),"rope"),
+C("◇",B("봉인 절단","CUT THE SEAL"),B("거칠게 문을 연다","open it by force"),{rope:-2,breath:1},B("봉인 안쪽에는 거점이 아니라 관찰창이 있었다.","Behind the seal was an observation window, not an anchor."),"s17",B("12층은 안전지대가 아니다. 위에서 우리를 보는 자리다.","Floor 12 is not a safe zone. It is where the surface watches us."),"light"),
+C("○",B("무호흡 통과","PASS WITHOUT BREATH"),B("문이 듣지 못하게 한다","let the door hear nothing"),{breath:-2,light:1},B("침묵 속에서 문은 당신 이름으로 열렸다.","In silence, the door opened under your name."),"s18",B("출입 권한은 탐사대가 아니라 한 사람의 이름에 묶여 있다.","Access belongs not to the expedition, but to one person's name."),"breath")]),
+E(B("닻 아래","BELOW THE ANCHOR"),B("안전선 너머에서는 모든 길이 귀환을 싫어한다.","Beyond the safe line, every path resists return."),[
+C("⌁",B("밧줄 안쪽","INSIDE THE ROPE"),B("섬유 사이로 내려간다","descend between fibers"),{rope:-2,light:-1},B("밧줄 안에는 이전 런의 마찰음이 저장돼 있었다.","The rope fibers stored the friction of earlier runs."),"s19",B("매번 새 밧줄을 썼지만 닳은 자리는 늘 같았다.","We used a new rope each time. The wear was always identical."),"rope"),
+C("×",B("완전 소등","TOTAL BLACKOUT"),B("어둠에 눈을 맡긴다","lend your eyes to dark"),{light:-3,breath:2},B("눈을 감자 아래가 아니라 과거가 보였다.","Closing your eyes revealed the past, not the below."),"s20",B("심연의 바닥은 지층이 아니라 첫 탐사 전날이었다.","The abyss bottom was not a stratum. It was the day before the first expedition."),"light"),
+C("○",B("자기 이름","SPEAK YOUR NAME"),B("통행료를 직접 낸다","pay the toll yourself"),{breath:-3,rope:2},B("이름이 사라진 만큼 밧줄이 길어졌다.","The rope lengthened by exactly what your name lost."),"s21",B("내 이름을 모두 말하면 지상에서 나를 기억하는 사람이 줄어든다.","Each full speaking of my name leaves fewer people remembering me above."),"breath")]),
+E(B("영점층","ZERO STRATUM"),B("마지막 세 표식에는 모두 당신의 필체가 있다.","All three final marks are written in your hand."),[
+C("✦",B("서명 접촉","TOUCH THE SIGNATURE"),B("빛으로 획을 따라간다","trace it with light"),{light:-2,breath:-1},B("서명이 손가락 아래에서 현재형으로 바뀌었다.","Under your finger, the signature changed into present tense."),"s22",B("나는 심연을 찾은 사람이 아니라 심연이 지상에 보낸 문장이다.","I did not find the abyss. I am the sentence it sent to the surface."),"light"),
+C("⌁",B("자기 밧줄 절단","CUT YOUR OWN ROPE"),B("끝을 확인한다","verify the end"),{rope:-3,light:1},B("잘린 끝은 아래가 아니라 당신 손목으로 이어졌다.","The cut end led not below, but back to your wrist."),"s23",B("밧줄의 반대쪽 끝을 잡고 있던 사람도 언제나 나였다.","The person holding the other end of the rope was always me."),"rope"),
+C("○",B("마지막 줄","THE LAST LINE"),B("숨이 끝나기 전에 읽는다","read before breath ends"),{breath:-2,light:-1},B("마침표가 찍히자 지상에서 누군가 첫 줄을 읽기 시작했다.","At the period, someone on the surface began reading the first line."),"s24",B("이 문장을 가져가면 다음 탐사는 이미 시작된 것이다.","If you carry this sentence home, the next expedition has already begun."),"breath")])
+];
+const TAGS={
+knot:{glyph:"⌁",label:B("매듭","KNOT"),resource:"rope",names:{common:B("밀랍 고리","WAXED LOOP"),rare:B("기억 매듭","MEMORY KNOT"),mythic:B("첫 밧줄","THE FIRST TETHER")},law:B("확정선이 낮아졌다. 더 오래 선택을 바꿀 수 있다.","The commit line moved lower. You have longer to reconsider.")},
+echo:{glyph:"≋",label:B("반향","ECHO"),resource:"light",names:{common:B("빈 종","HOLLOW BELL"),rare:B("되읽는 돌","REREADING STONE"),mythic:B("먼저 온 대답","THE ANSWER BEFORE")},law:B("표식이 결과 한 줄을 미리 반향한다.","Marks echo one outcome line before commitment.")},
+vein:{glyph:"◆",label:B("광맥","VEIN"),resource:"lowest",names:{common:B("빛 조각","LIGHT SHARD"),rare:B("맥동 수정","PULSE CRYSTAL"),mythic:B("지하의 별","SUBTERRANEAN STAR")},law:B("봉인을 고르기 전에 희귀도 기척이 보인다.","Relic rarity can be sensed before choosing.")},
+bone:{glyph:"╫",label:B("뼈","BONE"),resource:"rope",names:{common:B("관절 쐐기","JOINT WEDGE"),rare:B("두 번째 척추","SECOND SPINE"),mythic:B("귀환자의 갈비뼈","RETURNER'S RIB")},law:B("빠르게 확정하면 밧줄 손실 1을 무시한다.","A fast commitment ignores 1 rope loss.")},
+mycelium:{glyph:"※",label:B("균사","MYCELIUM"),resource:"breath",names:{common:B("잠든 포자","DORMANT SPORE"),rare:B("호흡 군락","BREATHING COLONY"),mythic:B("아래의 폐","THE LUNG BELOW")},law:B("천천히 확정하면 호흡 1을 회복한다.","A slow commitment restores 1 breath.")}
+};
+const TAG_KEYS=Object.keys(TAGS);
+const RARITY={common:{label:"COMMON",gain:1,color:"var(--yellow)"},rare:{label:"RARE",gain:2,color:"var(--cyan)"},mythic:{label:"MYTHIC",gain:3,color:"var(--coral)"}};
+const SURVEY={
+ko:["30초 안에 표식 선택 → 스크롤 확정을 이해했는가?","실패나 생환 뒤, 재미 때문에 한 번 더 하고 싶은가?","밧줄을 당길지 계속 내려갈지 실제로 망설인 층은?","이 유물 뽑기를 한 번 더 받기 위해 광고를 볼 만한가?","다음 런의 유품·문장과 지상 기록실이 궁금한가?","표시된 플레이 시간이 3~5분에 들어오는가?"],
+en:["Did mark → scroll → commit make sense within 30 seconds?","After failure or return, do you want another run for fun?","At which floor did you hesitate between rope and descent?","Would you watch a rewarded ad for one more relic draw like this?","Are you curious about the next run's note and surface archive?","Did the displayed run time land within 3–5 minutes?"]
+};
+let lang="ko",baseSeed=Number(new URLSearchParams(location.search).get("seed"))||Date.now(),rngSeed=baseSeed>>>0,toastTimer=0,state=null,current=null,finalResult=null;
+const meta={run:0,archive:[],deathNote:null},$=id=>document.getElementById(id),txt=obj=>obj[lang];
+function rand(){rngSeed^=rngSeed<<13;rngSeed^=rngSeed>>>17;rngSeed^=rngSeed<<5;return(rngSeed>>>0)/4294967296}
+function shuffle(a){const o=a.slice();for(let i=o.length-1;i;i--){const j=Math.floor(rand()*(i+1));[o[i],o[j]]=[o[j],o[i]]}return o}
+function setBi(el,copy){el.dataset.ko=copy.ko;el.dataset.en=copy.en;el.textContent=copy[lang]}
+function showToast(msg){clearTimeout(toastTimer);$("toast").textContent=msg;$("toast").classList.add("show");toastTimer=setTimeout(()=>$("toast").classList.remove("show"),1300)}
+function setModal(id,open){$(id).hidden=!open;document.body.classList.toggle("modal-open",open);if(state)state.modal=open;if(open){const b=$(id).querySelector("button");b&&setTimeout(()=>b.focus(),0)}}
+function applyLanguage(){
+ document.documentElement.lang=lang;document.title=lang==="ko"?"심연은 아래로만 읽힌다 · Codex · Toy 06":"THE ABYSS READS DOWNWARD · Codex · Toy 06";
+ document.querySelectorAll("[data-copy]").forEach(el=>{const v=COPY[lang][el.dataset.copy];if(v)el.textContent=v});
+ document.querySelectorAll("[data-ko][data-en]").forEach(el=>el.textContent=el.dataset[lang]);
+ const switchLabel=lang==="ko"?"EN":"KO";$("langButton").textContent=switchLabel;if($("startLang"))$("startLang").textContent=switchLabel;$("commitLabel").textContent=lang==="ko"?"COMMIT / 확정":"COMMIT LINE";
+ if(state)updateReturn();if(finalResult&&!$("resultOverlay").hidden)renderResult()
+}
+function toggleLanguage(){lang=lang==="ko"?"en":"ko";applyLanguage()}
+function bonus(){const b={rope:0,light:0,breath:0};meta.archive.slice(-3).forEach(s=>b[s.boon]=Math.min(2,b[s.boon]+1));return b}
+function beginRun(){
+ meta.run++;rngSeed=(baseSeed+meta.run*2654435761)>>>0;const b=bonus();
+ state={reached:0,resources:{rope:Math.min(12,9+b.rope),light:Math.min(12,9+b.light),breath:Math.min(12,9+b.breath)},tags:{knot:0,echo:0,vein:0,bone:0,mycelium:0},laws:new Set(),relics:[],sentences:[],selected:null,armedAt:0,committed:false,modal:false,minY:0,startAt:performance.now()};
+ current=null;finalResult=null;clearTimeout(toastTimer);$("toast").classList.remove("show");$("toast").textContent="";document.body.className="playing";$("shaft").replaceChildren();$("resultOverlay").hidden=true;$("returnOverlay").hidden=true;$("relicOverlay").hidden=true;
+ document.documentElement.style.setProperty("--commit-y","55vh");window.scrollTo(0,0);updateHud();appendLayer(1);applyLanguage()
+}
+function highestTag(){return TAG_KEYS.reduce((a,k)=>state.tags[k]>state.tags[a]?k:a,TAG_KEYS[0])}
+function rollRarity(d){const v=rand(),m=.025+d*.006,r=.23+d*.012;return v<m?"mythic":v<r?"rare":"common"}
+function relicOffers(d){const p=highestTag(),rest=shuffle(TAG_KEYS.filter(k=>k!==p)),tags=state.tags[p]>0?[p,rest[0],rest[1]]:shuffle(TAG_KEYS).slice(0,3);return shuffle(tags).map(tag=>({tag,rarity:rollRarity(d),delta:{breath:-1}}))}
+function deltaHtml(d){const s={rope:"⌁",light:"✦",breath:"○"};return Object.entries(d).filter(([,v])=>v).map(([k,v])=>`<span class="delta ${v>0?"plus":"minus"}">${s[k]}${v>0?"+":""}${v}</span>`).join("")}
+function lawHtml(){return[...state.laws].map(k=>`<span class="law-chip" data-ko="${TAGS[k].glyph} ${TAGS[k].label.ko} ×3" data-en="${TAGS[k].glyph} ${TAGS[k].label.en} ×3">${TAGS[k].glyph} ${TAGS[k].label[lang]} ×3</span>`).join("")}
+function appendLayer(depth){
+ state.selected=null;state.armedAt=0;state.committed=false;const relic=depth%2===0,event=relic?null:EVENTS[Math.min(7,Math.floor((depth-1)/2))],choices=relic?relicOffers(depth):event.choices;
+ const sec=document.createElement("section");sec.className="layer"+(depth>12?" risk":"");sec.dataset.depthLabel=String(depth).padStart(2,"0");
+ const title=relic?B("봉인 공명","SEALED RESONANCE"):event.title,premise=relic?B("세 봉인 중 하나만 현재 장비와 공명한다. 계열은 보이지만 희귀도는 숨겨져 있다.","Only one seal can resonate. Its family is visible; rarity is hidden."):event.premise;
+ sec.innerHTML=`<div class="layer-head"><div class="layer-code">F${String(depth).padStart(2,"0")} / ${relic?"RELIC DRAW":"PASSAGE"}</div><h2></h2><p class="layer-premise"></p><div class="previous-note" hidden></div><div class="law-strip">${lawHtml()}</div></div><div class="choice-zone"><div class="choice-caption"><span></span><strong></strong></div><div class="markers"></div><div class="descent-cue"></div></div><div class="next-cue" hidden><b>↓</b> <span></span></div>`;
+ setBi(sec.querySelector("h2"),title);setBi(sec.querySelector(".layer-premise"),premise);
+ const note=sec.querySelector(".previous-note");if(depth===1&&meta.deathNote){note.hidden=false;setBi(note,B(`${COPY.ko.runNote} · F${String(meta.deathNote.depth).padStart(2,"0")}\n“${meta.deathNote.ko}”`,`${COPY.en.runNote} · F${String(meta.deathNote.depth).padStart(2,"0")}\n“${meta.deathNote.en}”`))}
+ setBi(sec.querySelector(".choice-caption span"),B(COPY.ko.choose,COPY.en.choose));setBi(sec.querySelector(".choice-caption strong"),B(COPY.ko.change,COPY.en.change));
+ const grid=sec.querySelector(".markers");
+ choices.forEach((c,i)=>{
+  const b=document.createElement("button");b.type="button";b.className="marker"+(relic?" relic-marker":"");b.dataset.index=i;
+  if(relic){const tag=TAGS[c.tag],hint=state.laws.has("vein")?B(RARITY[c.rarity].label,RARITY[c.rarity].label):B(COPY.ko.sealed,COPY.en.sealed);b.innerHTML=`<span class="marker-glyph">${tag.glyph}</span><span class="marker-name"></span><span class="marker-hint"></span><span class="marker-cost">${deltaHtml(c.delta)}</span>`;setBi(b.querySelector(".marker-name"),tag.label);setBi(b.querySelector(".marker-hint"),hint)}
+  else{const hint=state.laws.has("echo")?c.result:c.hint;b.innerHTML=`<span class="marker-glyph">${c.glyph}</span><span class="marker-name"></span><span class="marker-hint"></span><span class="marker-cost">${deltaHtml(c.delta)}</span>`;setBi(b.querySelector(".marker-name"),c.name);setBi(b.querySelector(".marker-hint"),hint)}
+  b.onclick=()=>selectMarker(i);grid.appendChild(b)
+ });
+ setBi(sec.querySelector(".descent-cue"),B("표식을 누른다","TAP A MARK"));$("shaft").appendChild(sec);current={section:sec,depth,relic,event,choices,zone:sec.querySelector(".choice-zone")};updateHud();updateReturn();applyLanguage()
+}
+function selectMarker(i){if(!state||state.committed||state.modal)return;state.selected=i;state.armedAt=performance.now();current.section.querySelectorAll(".marker").forEach((el,n)=>el.classList.toggle("selected",n===i));const cue=current.section.querySelector(".descent-cue");cue.classList.add("armed");setBi(cue,B(COPY.ko.armed,COPY.en.armed));navigator.vibrate&&navigator.vibrate(12)}
+function onScroll(){
+ if(!state||state.modal)return;if(window.scrollY+1<state.minY){window.scrollTo(0,state.minY);return}if(!current||state.committed)return;
+ const line=innerHeight*(state.laws.has("knot")?.64:.55),top=current.zone.getBoundingClientRect().top;if(top>line)return;
+ if(state.selected===null){window.scrollTo(0,Math.max(state.minY,window.scrollY+top-line-3));showToast(COPY[lang].pickFirst);return}commitMarker()
+}
+function adjusted(raw){const d={rope:raw.rope||0,light:raw.light||0,breath:raw.breath||0},notes=[],elapsed=performance.now()-state.armedAt;if(state.laws.has("bone")&&elapsed<900&&d.rope<0){d.rope++;notes.push(lang==="ko"?"뼈 공명: 밧줄 1 보존":"Bone resonance: 1 rope saved")}if(state.laws.has("mycelium")&&elapsed>1700){d.breath++;notes.push(lang==="ko"?"균사 공명: 호흡 1 회복":"Mycelial resonance: 1 breath restored")}return{d,notes}}
+function applyDelta(d){Object.keys(state.resources).forEach(k=>state.resources[k]=Math.max(0,Math.min(12,state.resources[k]+(d[k]||0))));updateHud()}
+function commitMarker(){if(state.committed)return;state.committed=true;state.reached=current.depth;state.minY=Math.max(state.minY,scrollY-2);navigator.vibrate&&navigator.vibrate([18,25,28]);const c=current.choices[state.selected],a=adjusted(c.delta||{});applyDelta(a.d);current.relic?resolveRelic(c,a.notes):resolveEvent(c,a.notes)}
+function replaceResolved(title,result,sentence,notes){
+ const box=document.createElement("div");box.className="resolved";box.innerHTML=`<div class="resolved-tag"></div><h3></h3><p class="outcome"></p>${sentence?"<p class='found-line'></p>":""}${notes.length?"<p class='law-note'></p>":""}`;
+ setBi(box.querySelector(".resolved-tag"),B(`F${String(current.depth).padStart(2,"0")} / ${COPY.ko.committed}`,`F${String(current.depth).padStart(2,"0")} / ${COPY.en.committed}`));setBi(box.querySelector("h3"),title);setBi(box.querySelector(".outcome"),result);if(sentence)setBi(box.querySelector(".found-line"),sentence);if(notes.length)box.querySelector(".law-note").textContent=notes.join(" · ");
+ current.zone.querySelector(".markers").replaceWith(box);current.zone.querySelector(".choice-caption").hidden=true;current.zone.querySelector(".descent-cue").hidden=true;const next=current.section.querySelector(".next-cue");next.hidden=false;setBi(next.querySelector("span"),B(COPY.ko.next,COPY.en.next))
+}
+function resolveEvent(c,notes){const sentence={...c.sentence,depth:current.depth};state.sentences.push(sentence);replaceResolved(c.name,c.result,c.sentence,notes);afterResolution()}
+function resolveRelic(c,notes){
+ const tag=TAGS[c.tag],rar=RARITY[c.rarity];let target=tag.resource;if(target==="lowest")target=Object.keys(state.resources).sort((a,b)=>state.resources[a]-state.resources[b])[0];
+ const gain={rope:0,light:0,breath:0};gain[target]=rar.gain;if(c.tag==="bone"&&rar.gain>1)gain.breath=1;applyDelta(gain);state.tags[c.tag]++;
+ state.relics.push({tag:c.tag,rarity:c.rarity,name:tag.names[c.rarity],gain,depth:current.depth});let unlock=false;
+ if(state.tags[c.tag]>=3&&!state.laws.has(c.tag)){state.laws.add(c.tag);unlock=true;if(c.tag==="knot")document.documentElement.style.setProperty("--commit-y","64vh")}
+ const effectsKo=Object.entries(gain).filter(([,v])=>v).map(([k,v])=>`${COPY.ko[k]} +${v}`),effectsEn=Object.entries(gain).filter(([,v])=>v).map(([k,v])=>`${COPY.en[k]} +${v}`);
+ $("relicGlyph").textContent=tag.glyph;$("relicGlyph").style.color=rar.color;$("relicRarity").textContent=`${rar.label} · F${String(current.depth).padStart(2,"0")}`;setBi($("relicName"),tag.names[c.rarity]);setBi($("relicEffect"),B(effectsKo.join(" · "),effectsEn.join(" · ")));
+ $("resonanceCount").textContent=`${Math.min(3,state.tags[c.tag])} / 3`;[...$("resonancePips").children].forEach((p,i)=>p.classList.toggle("on",i<state.tags[c.tag]));
+ $("lawUnlock").hidden=!unlock;if(unlock)setBi($("lawUnlock"),B(`${COPY.ko.law} · ${tag.law.ko}`,`${COPY.en.law} · ${tag.law.en}`));
+ replaceResolved(tag.names[c.rarity],B(`${tag.label.ko} 공명 ${Math.min(3,state.tags[c.tag])}/3 · ${effectsKo.join(" · ")}`,`${tag.label.en} resonance ${Math.min(3,state.tags[c.tag])}/3 · ${effectsEn.join(" · ")}`),null,notes);setModal("relicOverlay",true)
+}
+function failed(){return Object.keys(state.resources).find(k=>state.resources[k]<=0)}
+function afterResolution(){const f=failed();if(f){setTimeout(()=>finishRun("death",f),300);return}if(state.reached===12)showToast(COPY[lang].checkpoint);if(state.reached===15){const next=current.section.querySelector(".next-cue");next.querySelector("b").textContent="■";setBi(next.querySelector("span"),B(COPY.ko.bottom,COPY.en.bottom));showToast(COPY[lang].bottom);updateReturn();return}appendLayer(state.reached+1)}
+function closeRelic(){setModal("relicOverlay",false);afterResolution()}
+function updateHud(){if(!state)return;$("depthValue").textContent=String(state.reached).padStart(2,"0");["rope","light","breath"].forEach(k=>{const v=state.resources[k];$(k+"Value").textContent=v;$(k+"Meter").style.width=v/12*100+"%";$("res"+k[0].toUpperCase()+k.slice(1)).classList.toggle("low",v<=3)})}
+function updateReturn(){if(!state)return;$("returnButton").hidden=state.reached<3||!!failed();$("returnButton").classList.toggle("checkpoint",state.reached>=12);$("returnDepth").textContent="F"+String(state.reached).padStart(2,"0")}
+function openReturn(){if(!state||state.reached<3||state.modal)return;$("confirmDepth").textContent=String(state.reached).padStart(2,"0");$("confirmRope").textContent=state.resources.rope;$("confirmLight").textContent=state.resources.light;$("confirmBreath").textContent=state.resources.breath;const n=state.sentences.length;setBi($("returnCopy"),B(`F${String(state.reached).padStart(2,"0")}에서 귀환한다. 본 문장 ${n}개 중 하나만 지상 기록실에 남길 수 있다.`,`Return from F${String(state.reached).padStart(2,"0")}. Only one of ${n} witnessed sentences can enter the surface archive.`));setModal("returnOverlay",true)}
+function finishRun(outcome,reason){
+ if(!state||finalResult)return;const elapsed=performance.now()-state.startAt;if(outcome==="death"&&state.sentences.length)meta.deathNote={...state.sentences.at(-1),depth:state.reached};
+ finalResult={outcome,reason,depth:state.reached,relics:state.relics.length,laws:state.laws.size,elapsed,sentences:state.sentences.slice(),picked:null};
+ state.modal=false;document.body.className="modal-open";$("returnOverlay").hidden=$("relicOverlay").hidden=true;renderResult();$("resultOverlay").hidden=false;setTimeout(()=>$("resultAgain").focus(),0)
+}
+function pickSentence(id){if(!finalResult||finalResult.outcome!=="return")return;const s=finalResult.sentences.find(x=>x.id===id);if(!s)return;finalResult.picked=id;if(!meta.archive.some(x=>x.id===id))meta.archive.push(s);renderResult()}
+function formatTime(ms){const s=Math.round(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+function renderResult(){
+ if(!finalResult)return;const ok=finalResult.outcome==="return";$("resultKicker").textContent=ok?"EXPEDITION REPORT / RETURN":"EXPEDITION REPORT / MISSING";$("resultTitle").textContent=ok?COPY[lang].returned:COPY[lang].death;$("resultCopy").textContent=ok?COPY[lang].survivedCopy:COPY[lang].diedCopy;
+ $("resultDepth").textContent=String(finalResult.depth).padStart(2,"0");$("resultRelics").textContent=finalResult.relics;$("resultLaws").textContent=finalResult.laws;$("resultTime").textContent=formatTime(finalResult.elapsed);
+ const picks=$("sentencePicks");picks.replaceChildren();
+ if(ok&&finalResult.sentences.length){const h=document.createElement("h3");h.textContent=COPY[lang].sentencePick;picks.appendChild(h);finalResult.sentences.slice(-3).reverse().forEach(s=>{const b=document.createElement("button");b.type="button";b.className="sentence-button"+(finalResult.picked===s.id?" selected":"");b.textContent="“"+s[lang]+"”";b.onclick=()=>pickSentence(s.id);picks.appendChild(b)})}
+ else{const p=document.createElement("p");p.className="modal-copy";p.textContent=ok?COPY[lang].noSentence:(meta.deathNote?`${COPY[lang].runNote} · “${meta.deathNote[lang]}”`:"");picks.appendChild(p)}
+ const list=$("archiveList");list.replaceChildren();(meta.archive.length?meta.archive:[null]).forEach(s=>{const li=document.createElement("li");li.textContent=s?s[lang]+` [+1 ${COPY[lang][s.boon]}]`:(lang==="ko"?"아직 회수된 문장이 없다.":"No sentence recovered yet.");list.appendChild(li)});
+ const survey=$("surveyList");survey.replaceChildren();SURVEY[lang].forEach(q=>{const li=document.createElement("li");li.textContent=q;survey.appendChild(li)});
+ $("resultAgain").disabled=ok&&finalResult.sentences.length>0&&!finalResult.picked
+}
+$("startButton").onclick=beginRun;$("langButton").onclick=$("startLang").onclick=toggleLanguage;$("equipButton").onclick=closeRelic;$("returnButton").onclick=openReturn;$("cancelReturn").onclick=()=>setModal("returnOverlay",false);$("confirmReturn").onclick=()=>finishRun("return","rope");
+$("resultAgain").onclick=()=>{if($("resultAgain").disabled){showToast(COPY[lang].sentenceNeeded);return}$("resultOverlay").hidden=true;document.body.className="";beginRun()};
+addEventListener("scroll",onScroll,{passive:true});addEventListener("resize",()=>state&&!state.committed&&onScroll());applyLanguage();
+window.__TOY06__={getState:()=>state?{reached:state.reached,resources:{...state.resources},tags:{...state.tags},laws:[...state.laws],relics:state.relics.length,sentences:state.sentences.length,selected:state.selected,committed:state.committed}:null,getMeta:()=>({run:meta.run,archive:meta.archive.map(s=>s.id),deathNote:meta.deathNote&&meta.deathNote.id})};
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>닫힌 창구의 잉여 · Toy 02</title>
+<script src="../build-meta.js" defer></script>
 <style>
   /* == LIVE FORM 시각 시스템 v1 (Codex 55 방향) ============================
      차가운 종이 / 잉크 / 행동 청색 / 이상 적색 / 미결 형광 / 비활성 회색
@@ -12,9 +13,11 @@
   :root{
     --paper:#EEF1EE; --ink:#151719; --act:#2457D6; --bad:#E5482D;
     --hold:#D7EE3A; --dim:#8B9294; --rule:rgba(21,23,25,.28);
+    --build-meta-color:var(--dim);
   }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ height:100%; }
+  html{ background:var(--paper); }
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
     background:var(--paper); color:var(--ink); font-size:16px; line-height:1.45;
@@ -53,7 +56,7 @@
   /* -- 실측 -- */
   #checkHead{ font-size:12px; font-weight:700; color:var(--dim); margin:16px 0 2px; }
   .chk{ font-size:16px; padding:9px 4px; border-bottom:1px dashed var(--rule); display:flex; gap:8px; align-items:baseline; }
-  .chk .slot{ font-weight:700; }
+  .chk .slot{ flex:0 0 auto; font-weight:700; white-space:nowrap; }
   .chk.bad{ background:var(--hold); }
   .chk.bad .bang{ color:var(--bad); font-weight:900; }
   .chk.resolved{ background:none; }
@@ -114,7 +117,7 @@
 </style>
 </head>
 <body>
-<div id="app">
+<div id="app" inert aria-hidden="true">
   <div id="formHead">
     <div class="t1"><span id="fTitle"></span><span class="mono">00:40</span></div>
     <div class="t2" id="fSub"></div>
@@ -130,10 +133,10 @@
   <div id="dayrec"></div>
 </div>
 
-<div id="stampbar"><div class="inner" id="stampInner"></div></div>
+<div id="stampbar" hidden inert aria-hidden="true"><div class="inner" id="stampInner"></div></div>
 
 <!-- 표지 -->
-<div class="ovl" id="cover">
+<div class="ovl" id="cover" role="dialog" aria-modal="true" aria-labelledby="cvTitle">
   <div class="inner">
     <div class="cover">
       <div class="tag"><span>TOY 02 / 04</span><button id="langBtn">EN</button></div>
@@ -142,12 +145,13 @@
       <div class="qbox" id="cvQ"></div>
       <div class="rules" id="cvRules"></div>
       <button class="wide" id="startBtn"></button>
+      <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
     </div>
   </div>
 </div>
 
 <!-- 최종 보고 -->
-<div class="ovl" id="report" style="display:none">
+<div class="ovl" id="report" role="dialog" aria-modal="true" aria-labelledby="rpTag" aria-hidden="true" style="display:none">
   <div class="inner">
     <div class="cover">
       <div class="tag"><span id="rpTag"></span><span class="mono" id="rpRun"></span></div>
@@ -157,6 +161,7 @@
       <button class="wide" id="againBtn" style="margin-top:14px"></button>
       <div class="qq" id="rpQQ"></div>
       <div class="stats" id="rpNote" style="margin-top:8px"></div>
+      <div class="build-meta" data-build-meta>DEPLOY 확인 중</div>
     </div>
   </div>
 </div>
@@ -176,8 +181,8 @@ ko:{
   guideNext:"기록되었다",
   stamps:{reg:["등록","새 항목으로"], hold:["보류","미기록 상자"], link:["묶기","같은 사건으로"], pass:["인계","다음 근무자"]},
   next:"다음 날 →", lastday:"최종 처리로 →",
-  rec:{reg:no=>no+" 항목을 정식 등록했다.", hold:no=>no+" 곁의 이상을 미기록 상자에 두었다.",
-       link:no=>no+" 을(를) 반복 흔적과 한 사건으로 묶었다.", pass:no=>no+" 건을 다음 근무자에게 넘겼다."},
+  rec:{reg:no=>no+" · 새 항목으로 정식 등록했다.", hold:no=>no+" · 이상을 미기록 상자에 두었다.",
+       link:no=>no+" · 반복 흔적과 한 사건으로 묶었다.", pass:no=>no+" · 다음 근무자에게 넘겼다."},
   finalHead:"사흘째 마감 — 이 반복을 어떻게 남길 것인가",
   finals:{official:["공식 기록","+4 반복을 사건으로 올린다"], lock:["미기록함 잠금","오늘도 조용히 덮는다"],
           order:["반복 묶기","물건이 아니라 순서를 기록한다"], shift:["인계","판단을 넘긴다"]},
@@ -253,6 +258,13 @@ let day=0, phase="print", sel=null, seq=[], run=0, t0=0;
 
 const $=id=>document.getElementById(id);
 function el(tag,cls,html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
+function setGameSurface(active){
+  ["app","stampbar"].forEach(id=>{
+    const node=$(id);
+    node.inert=!active;
+    node.setAttribute("aria-hidden", active?"false":"true");
+  });
+}
 function printSeq(nodes,box,done){ // 인쇄 모션: 140ms 간격
   let i=0;
   (function next(){
@@ -341,6 +353,9 @@ function stamp(k){
 
 /* ===== 최종 선택 → 반전 → 보고 ===== */
 function finalChoice(){
+  $("stampbar").hidden=true;
+  $("stampbar").inert=true;
+  $("stampbar").setAttribute("aria-hidden","true");
   const box=$("dayrec"); box.innerHTML="";
   $("guide").textContent="";
   const head=el("div","recline","<b>"+t("finalHead")+"</b>");
@@ -355,6 +370,8 @@ function finalChoice(){
 }
 function report(k){
   const dur=Math.round((Date.now()-t0)/1000);
+  setGameSurface(false);
+  $("stampbar").hidden=true;
   $("rpTag").textContent=t("rpTag"); $("rpRun").textContent=t("run")(run);
   $("rpReveal").innerHTML=t("reveal");
   $("rpVerdict").textContent=t("verdicts")[k];
@@ -362,13 +379,28 @@ function report(k){
   $("againBtn").textContent=t("again");
   $("rpQQ").innerHTML=t("qq"); $("rpNote").textContent=t("note");
   $("report").style.display="block";
+  $("report").setAttribute("aria-hidden","false");
+  $("againBtn").focus();
 }
 
 /* ===== 시작/재시작 ===== */
-function newRun(){ day=0; seq=[]; run++; t0=Date.now(); startDay(); }
+function newRun(){
+  day=0; seq=[]; run++; t0=Date.now();
+  $("stampbar").hidden=false;
+  setGameSurface(true);
+  startDay();
+}
 $("langBtn").onclick=()=>{ lang=(lang==="ko"?"en":"ko"); renderStatic(); };
-$("startBtn").onclick=()=>{ $("cover").style.display="none"; newRun(); };
-$("againBtn").onclick=()=>{ $("report").style.display="none"; newRun(); };
+$("startBtn").onclick=()=>{
+  $("cover").style.display="none";
+  $("cover").setAttribute("aria-hidden","true");
+  newRun();
+};
+$("againBtn").onclick=()=>{
+  $("report").style.display="none";
+  $("report").setAttribute("aria-hidden","true");
+  newRun();
+};
 renderStatic(); renderStampbar(true);
 </script>
 </body>

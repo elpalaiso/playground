@@ -94,6 +94,7 @@
   .wk div{ border:1px solid var(--line); padding:8px 2px; font-size:11px; text-align:center; }
   .wk b{ display:block; font-size:14px; margin-top:3px; }
   .stamp{ animation:stampin .45s cubic-bezier(.2,1.4,.4,1); text-align:center; }
+  .inter{ color:var(--dim); font-size:11.5px; line-height:1.65; border-left:2px solid var(--line); padding:5px 10px; margin:10px 0 2px; text-align:left; }
   button:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
   @media (prefers-reduced-motion: reduce){ body::after{ display:none; } .stamp{ animation:none; } .chip{ transition:none; } #sweep{ transition:none; } .chip.ring{ animation:none; border-color:var(--amber); } }
   @keyframes stampin{ 0%{ transform:scale(1.7); opacity:0; } 60%{ transform:scale(.96); opacity:1; } 100%{ transform:scale(1); } }
@@ -249,6 +250,32 @@ E.MAILS2=[
  {ko:"H의 편지: \"그 집, 아침 해가 어느 창으로 드는지 아직 기억해요.\"", en:"H writes: \"I still remember which window the morning sun comes through, in that room.\""},
  {ko:"수면 클리닉 안내문이 다시 왔다 — 수신인이 정정되어 있었다. 이번엔 내 이름이다.", en:"The sleep clinic letter came again — the name corrected. Mine, this time."},
  {ko:"서혜의 소포를 대신 받았다. 가볍다. 흔들면 마른 소리가 난다.", en:"I signed for Seo-hye's parcel. It's light. It rattles, dry, when shaken."}
+];
+
+/* 인터스티셜 「수신인 불명」 — claude/67 §4 원문 22쌍. 런 종료당 1줄, 챕터 진행 고정 순서 */
+E.INTERS=[
+ {ko:"우편함에 내 이름 말고도 한 사람이 더 산다.", en:"Someone else still lives in my mailbox."},
+ {ko:"고지서는 사람보다 늦게 이사한다.", en:"Bills move out later than people do."},
+ {ko:"폰의 기본 알람: 06:31. 내가 고른 적 없는 시각.", en:"Default alarm: 06:31. A time I never chose."},
+ {ko:"벽에 못 자국 하나. 액자 크기는 아니다.", en:"A nail hole in the wall. Not picture-sized."},
+ {ko:"관리인: \"전에 살던 분? 조용했어요. 아침엔 늘 없었고.\"", en:"Janitor: \"The last tenant? Quiet. Never here in the mornings.\""},
+ {ko:"편지 소인이 전부 같은 소도시에서 온다.", en:"Every postmark comes from the same small town."},
+ {ko:"\"답장 기다릴게.\" 손편지의 마지막 줄은 늘 같다.", en:"\"I will wait for your reply.\" Every letter ends the same way."},
+ {ko:"이 방은 아침 여섯 시 반에 가장 낯익다.", en:"This room feels most familiar at half past six in the morning."},
+ {ko:"벽장 안쪽, 종이 시간표. 손글씨. 첫 줄 — 기상 06:31.", en:"Inside the closet: a paper schedule. Handwritten. First line — wake 06:31."},
+ {ko:"그의 아침과 내 아침이 한 줄 차이다.", en:"His morning and mine differ by a single line."},
+ {ko:"시간표의 금요일 칸만 잉크가 번져 있다.", en:"Only the Friday box is smudged with ink."},
+ {ko:"병원 안내문: \"야간 근무 일정 변경 안내.\"", en:"Hospital notice: \"Regarding changes to the night-shift schedule.\""},
+ {ko:"그에게 아침은 하루의 끝이었다.", en:"For him, morning was the end of the day."},
+ {ko:"여동생의 추신: \"오빠, 아침에 자는 사람도 아침은 필요해.\"", en:"His sister's P.S.: \"Even people who sleep through mornings need one.\""},
+ {ko:"발신인이 처음으로 풀네임을 적었다.", en:"For the first time, the sender signs a full name."},
+ {ko:"\"수취인 불명\" 도장은 마르면서 질문이 된다.", en:"The \"return to sender\" stamp dries into a question."},
+ {ko:"소인의 소도시엔 요양 병원이 하나 있다.", en:"The town on the postmark has one nursing hospital."},
+ {ko:"그는 도망친 게 아니라 다른 아침을 골랐다.", en:"He did not run. He chose a different morning."},
+ {ko:"금요일이 번져 있던 이유 — 처음으로 늦잠 잔 날.", en:"Why Friday was smudged — the first day he overslept."},
+ {ko:"\"그날 늦잠이 저를 살렸어요.\" 반송된 편지의 답장.", en:"\"That oversleep saved my life.\" The reply to the returned letter."},
+ {ko:"달력은 누구에게나 온다. 리듬은 고르는 것이다.", en:"Calendars come to everyone. Rhythm is something you choose."},
+ {ko:"내일의 첫 알람을, 처음으로 내가 고른 시각으로 바꿨다.", en:"For the first time, I set tomorrow's first alarm to a time of my own."}
 ];
 
 E.CARDS=[
@@ -735,6 +762,8 @@ function showReport(tier){
     : `<div class="rule" style="border-color:var(--bad)">${T("부재중 1건. 모르는 번호는 다시 걸어주지 않는다.","One missed call. Unknown numbers do not call twice.")}</div>`;
   }
   html+=`<div id="mailBox"><div class="mh">${T("우편함 — 오늘도 한 통","MAILBOX — ONE MORE TODAY")}</div><span id="mailTxt"></span></div>`;
+  const il=E.INTERS[Math.min(hist.length-1, E.INTERS.length-1)];
+  if(il) html+=`<div class="inter">${T(il.ko,il.en)}</div>`;
   if(ch1End){
     html+=`<div class="cardRow">
       <button class="card" id="mailKeep"><b>${T("보관한다","KEEP IT")}</b>${T("서랍에 넣는다. 다섯 통 전부.","Into the drawer. All five.")}</button>

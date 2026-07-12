@@ -9,7 +9,7 @@
 <style>
   :root{
     --bg:#100e08; --panel:#171308; --line:#3a2f16;
-    --amber:#ffb35c; --amber2:#ffd79a; --dim:#8a7a55;
+    --amber:#ffb35c; --amber2:#ffd79a; --dim:#9c8b63;
     --ok:#8fd06b; --warn:#ffd05c; --bad:#ff6b57; --snz:#c9a2ff;
     --build-meta-color:var(--dim);
   }
@@ -94,6 +94,8 @@
   .wk div{ border:1px solid var(--line); padding:8px 2px; font-size:11px; text-align:center; }
   .wk b{ display:block; font-size:14px; margin-top:3px; }
   .stamp{ animation:stampin .45s cubic-bezier(.2,1.4,.4,1); text-align:center; }
+  button:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){ body::after{ display:none; } .stamp{ animation:none; } .chip{ transition:none; } #sweep{ transition:none; } .chip.ring{ animation:none; border-color:var(--amber); } }
   @keyframes stampin{ 0%{ transform:scale(1.7); opacity:0; } 60%{ transform:scale(.96); opacity:1; } 100%{ transform:scale(1); } }
 </style>
 </head>
@@ -118,7 +120,7 @@
     <button id="leaveBtn"></button>
   </div>
 </div>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <div class="ovl" id="briefOvl" style="display:none">
   <div class="panel" id="briefPanel"></div>
@@ -830,8 +832,10 @@ function weekly2(){
 
 /* ---- lang ---- */
 $("langBtn").textContent=LANG==="ko"?"EN":"KO";
+document.documentElement.lang=LANG;
 $("langBtn").onclick=()=>{
   LANG=LANG==="ko"?"en":"ko"; localStorage.setItem("snooze_lang",LANG);
+  document.documentElement.lang=LANG;
   $("langBtn").textContent=LANG==="ko"?"EN":"KO";
   if(S&&!S.done){ buildTl(); render(); if(ringing){ const a=ringing; ringing=null; openRing(a); } else idleSheet(); }
 };

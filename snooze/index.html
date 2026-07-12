@@ -14,6 +14,7 @@
     --build-meta-color:var(--dim);
   }
   *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body::after{ content:""; position:fixed; inset:0; pointer-events:none; z-index:99; background:repeating-linear-gradient(0deg, rgba(0,0,0,.13) 0 1px, transparent 1px 3px); }
   html,body{ height:100%; }
   body{
     background:var(--bg); color:var(--amber2);
@@ -519,7 +520,7 @@ function wipe(){ localStorage.removeItem("snooze_v1"); }
 function boot(){
   const sv=loadGame();
   const p=$("bootPanel");
-  p.innerHTML=`<h1>SNOOZE</h1><div class="ptag">${T("이사 첫 주 · 아침 다섯 개","MOVE-IN WEEK · FIVE MORNINGS")}</div>
+  p.innerHTML=`<h1>SNOOZE</h1><div class="ptag">${T("두 주 · 아침 열 개","TWO WEEKS · TEN MORNINGS")}</div>
    <div class="rule">${T("당신은 미룰 수 있다.<br>세계는 기다리지 않는다.","You can snooze.<br>The world won't wait.")}</div>
    ${sv&&sv.day>0&&sv.day<10? `<button class="go" id="contBtn">▶ ${T("이어서 — DAY "+(sv.day+1)+"/10","CONTINUE — DAY "+(sv.day+1)+"/10")}</button>
    <button class="go ghostbtn" id="newBtn">${T("처음부터","NEW WEEK")}</button>`
@@ -707,6 +708,7 @@ function showReport(tier){
   html+=g.map(x=>`<div class="rrow">${x.tag} <span style="color:var(--dim);font-weight:600">${T(x.ko,x.en)}</span><span class="mark ${x.v}">${x.v==="ok"?"✓":x.v==="warn"?"△":"✗"}</span></div>`).join("");
   html+=`<div class="rrow">CALM <span style="color:var(--dim);font-weight:600">${T("여유","calm")}</span><span class="mark ${S.coffeeGiven?"ok":""}" style="${S.coffeeGiven?"":"color:var(--dim)"}">${S.coffeeGiven?"✓":"—"}</span></div>`;
   html+=`<div class="stats">${T("기상","wake")} ${S.wakeTime?E.fmt(S.wakeTime):"—"} · +${S.snzMin} x${S.snz} · ${T("출발","left")} ${S.leaveTime?E.fmt(S.leaveTime):"—"}</div>`;
+  html+=`<div class="stats" style="word-break:break-all;font-size:10.5px">${S.seq.length? T("기록: ","log: ")+S.seq.join(" "):""}</div>`;
   html+=`<div id="mailBox"><div class="mh">${T("우편함 — 오늘도 한 통","MAILBOX — ONE MORE TODAY")}</div><span id="mailTxt"></span></div>`;
   if(ch1End){
     html+=`<div class="cardRow">

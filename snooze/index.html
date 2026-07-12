@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#100e08">
+<title>SNOOZE · 스누즈</title>
+<script src="../build-meta.js" defer></script>
+<style>
+  :root{
+    --bg:#100e08; --panel:#171308; --line:#3a2f16;
+    --amber:#ffb35c; --amber2:#ffd79a; --dim:#8a7a55;
+    --ok:#8fd06b; --warn:#ffd05c; --bad:#ff6b57; --snz:#c9a2ff;
+    --build-meta-color:var(--dim);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg); color:var(--amber2);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Courier New",monospace;
+    overflow:hidden; user-select:none; -webkit-user-select:none;
+  }
+  #app{ max-width:480px; margin:0 auto; height:100dvh; display:flex; flex-direction:column; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); gap:8px; }
+
+  /* header */
+  #hdr{ display:flex; align-items:baseline; gap:10px; }
+  #dayChip{ color:var(--dim); font-size:12px; font-weight:700; letter-spacing:1px; }
+  #clock{ font-size:38px; font-weight:800; letter-spacing:2px; color:var(--amber); font-variant-numeric:tabular-nums; text-shadow:0 0 12px rgba(255,179,92,.35); }
+  #snzChip{ color:var(--snz); font-size:12px; font-weight:700; margin-left:auto; }
+  #langBtn{ background:none; border:1px solid var(--line); color:var(--dim); font:700 11px ui-monospace,monospace; padding:3px 8px; }
+
+  /* forecast */
+  #fc{ border:1px solid var(--line); background:var(--panel); padding:6px 8px; font-size:12.5px; line-height:1.5; letter-spacing:.5px; min-height:30px; }
+  #fc b{ color:var(--dim); font-weight:700; margin-right:6px; }
+  .fok{ color:var(--ok); } .fwarn{ color:var(--warn); } .fbad{ color:var(--bad); } .fdim{ color:var(--dim); }
+
+  /* timeline */
+  #tl{ position:relative; flex:1; min-height:0; background:var(--panel); border:1px solid var(--line); overflow:hidden; }
+  .tick{ position:absolute; left:0; right:0; border-top:1px dashed rgba(138,122,85,.18); }
+  .tick label{ position:absolute; left:6px; top:-8px; font-size:10px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #sweep{ position:absolute; left:0; right:0; height:0; border-top:2px solid var(--amber); box-shadow:0 0 14px rgba(255,179,92,.5); transition:top .12s linear; z-index:3; }
+  #sweep b{ position:absolute; right:4px; top:-16px; font-size:11px; color:var(--bg); background:var(--amber); padding:1px 5px; font-variant-numeric:tabular-nums; }
+  .chip{ position:absolute; right:8px; display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); padding:2px 7px; font-size:12px; font-weight:700; transform:translateY(-50%); transition:top .35s cubic-bezier(.2,.9,.3,1.2); z-index:2; letter-spacing:.5px; }
+  .chip .tt{ color:var(--dim); font-size:10px; font-variant-numeric:tabular-nums; }
+  .chip.ring{ animation:pulse .7s infinite; border-color:var(--amber); color:var(--amber); }
+  .chip.done{ opacity:.35; } .chip.off{ opacity:.3; text-decoration:line-through; }
+  .chip .lk{ color:var(--bad); font-size:9px; }
+  @keyframes pulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(255,179,92,.55);} 50%{ box-shadow:0 0 0 7px rgba(255,179,92,0);} }
+  .ghost{ position:absolute; right:8px; transform:translateY(-50%); font-size:10px; color:var(--snz); opacity:.7; border:1px dashed var(--snz); padding:0 4px; z-index:1; white-space:nowrap; }
+  .dline{ position:absolute; left:0; right:0; border-top:1px solid rgba(255,107,87,.45); z-index:1; }
+  .dline label{ position:absolute; right:6px; top:-14px; font-size:10px; color:var(--bad); font-weight:700; }
+
+  /* action sheet */
+  #sheet{ background:var(--panel); border:1px solid var(--line); padding:10px; min-height:132px; display:flex; flex-direction:column; gap:8px; }
+  #sheetIdle{ color:var(--dim); font-size:12px; text-align:center; margin:auto; letter-spacing:1px; }
+  #sheetHead{ display:none; gap:8px; font-weight:800; font-size:15px; align-items:baseline; }
+  #sheetHead .sub{ display:block; color:var(--dim); font-size:11px; font-weight:600; margin-top:2px; }
+  #btns{ display:none; gap:8px; }
+  .vbtn{ flex:1; background:var(--bg); color:var(--amber2); border:1px solid var(--line); min-height:74px; font-family:inherit; font-size:16px; font-weight:800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; }
+  .vbtn small{ font-size:9.5px; color:var(--dim); font-weight:600; }
+  .vbtn:active{ transform:scale(.96); }
+  .vbtn:disabled{ opacity:.3; }
+  .vbtn.snz{ border-color:var(--snz); color:var(--snz); }
+  #leaveBtn{ display:none; background:var(--bg); border:1px solid var(--amber); color:var(--amber); font-family:inherit; font-size:12px; font-weight:800; padding:8px 10px; letter-spacing:1px; }
+
+  /* overlays */
+  .ovl{ position:fixed; inset:0; background:rgba(8,6,2,.92); display:flex; align-items:center; justify-content:center; z-index:10; }
+  .panel{ width:min(94vw,440px); max-height:94dvh; overflow-y:auto; background:var(--panel); border:1px solid var(--line); padding:20px 16px; }
+  .panel h1{ font-size:30px; letter-spacing:8px; color:var(--amber); font-weight:900; }
+  .ptag{ color:var(--dim); font-size:11px; letter-spacing:2px; margin:2px 0 12px; }
+  .rule{ border:1px dashed var(--line); padding:8px 10px; margin:6px 0; font-size:12.5px; line-height:1.6; }
+  .rule b{ color:var(--warn); font-weight:700; }
+  .go{ width:100%; min-height:58px; border:1px solid var(--amber); background:var(--amber); color:var(--bg); font-family:inherit; font-size:16px; font-weight:900; margin-top:12px; letter-spacing:2px; }
+  .go.ghostbtn{ background:none; color:var(--amber); }
+  .go:active{ transform:scale(.97); }
+  .flavor{ color:var(--dim); font-size:11.5px; line-height:1.7; margin-top:10px; }
+  .rrow{ display:flex; gap:10px; padding:6px 4px; border-bottom:1px solid rgba(58,47,22,.6); font-size:13.5px; font-weight:700; }
+  .rrow .mark{ margin-left:auto; font-weight:900; }
+  .verdict{ font-size:17px; font-weight:900; margin:12px 0 4px; letter-spacing:1px; }
+  .stats{ color:var(--dim); font-size:11.5px; line-height:1.8; }
+  #mailBox{ border:1px solid var(--line); background:var(--bg); padding:10px; margin:12px 0 4px; font-size:12.5px; line-height:1.75; min-height:64px; text-align:left; }
+  #mailBox .mh{ color:var(--dim); font-size:10px; letter-spacing:1px; margin-bottom:4px; }
+  .cardRow{ display:flex; gap:8px; margin:10px 0; }
+  .card{ flex:1; background:var(--bg); border:1px solid var(--line); padding:10px 8px; font-size:11.5px; line-height:1.55; text-align:left; color:var(--amber2); font-family:inherit; }
+  .card:active{ transform:scale(.97); }
+  .card b{ display:block; color:var(--amber); font-size:12.5px; margin-bottom:5px; }
+  .card .up{ color:var(--ok); } .card .dn{ color:var(--bad); }
+  .adbtn{ background:none; border:1px dashed var(--warn); color:var(--warn); font-family:inherit; font-size:12px; font-weight:800; padding:9px 10px; width:100%; margin-top:4px; }
+  .adbtn:disabled{ opacity:.35; }
+  #toast{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(150px + env(safe-area-inset-bottom)); background:var(--panel); border:1px solid var(--line); color:var(--amber2); padding:8px 14px; font-size:12.5px; font-weight:700; opacity:0; transition:opacity .25s; z-index:20; pointer-events:none; max-width:88vw; text-align:center; }
+  .ok{ color:var(--ok);} .warn{ color:var(--warn);} .bad{ color:var(--bad);} .snzc{ color:var(--snz);} .amberc{ color:var(--amber);}
+  .wk{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin:12px 0; }
+  .wk div{ border:1px solid var(--line); padding:8px 2px; font-size:11px; text-align:center; }
+  .wk b{ display:block; font-size:14px; margin-top:3px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <span id="dayChip">DAY 1</span>
+    <span id="clock">06:20</span>
+    <span id="snzChip">+9 x0</span>
+    <button id="langBtn">EN</button>
+  </div>
+  <div id="fc"></div>
+  <div id="tl"></div>
+  <div id="sheet">
+    <div id="sheetIdle">... morning flows ...</div>
+    <div id="sheetHead"><span id="shName"></span></div>
+    <div id="btns">
+      <button class="vbtn" id="bDo"></button>
+      <button class="vbtn snz" id="bSnz"></button>
+      <button class="vbtn" id="bOff"></button>
+    </div>
+    <button id="leaveBtn"></button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<div class="ovl" id="briefOvl" style="display:none">
+  <div class="panel" id="briefPanel"></div>
+</div>
+<div class="ovl" id="resOvl" style="display:none">
+  <div class="panel" id="resPanel"></div>
+</div>
+<div class="ovl" id="bootOvl">
+  <div class="panel" id="bootPanel"></div>
+</div>
+
+<script>
+"use strict";
+/*ENGINE-START*/
+/* ============ SNOOZE ENGINE — pure logic, no DOM ============ */
+const E={};
+E.START=380; E.END=490; E.COFFEE=405; E.NATURAL=460; E.DEPART=485; E.WALK=25;
+E.fmt=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+
+/* alarms: kind = wake|window|call|door|leave|street
+   win:[okBy, warnBy] — for call, judged on (answer+dur) vs fixed home/route bounds */
+E.DAYS=[
+ {id:1, ko:"첫 아침", en:"FIRST MORNING", bko:"이사 첫날 밤이 지났다. 방은 아직 상자투성이.", ben:"First night in the new place. Boxes everywhere.",
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:390, kind:"wake"},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:420, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:435, kind:"call", dur:6},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:442, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:455, kind:"door", wait:1}
+  ]},
+ {id:2, ko:"수거일", en:"COLLECTION DAY", bko:"종량제 봉투가 문 옆에 있다. 수거차는 07:15에 지나간다.", ben:"Trash bag by the door. The truck passes at 07:15.",
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:390, kind:"wake"},
+   {id:"trash",tag:"TRASH",ko:"봉투 내놓기", en:"trash out", t:400, kind:"window", win:[435,435]},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:420, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:435, kind:"call", dur:6},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:442, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:455, kind:"door", wait:1}
+  ]},
+ {id:3, ko:"비", en:"RAIN", bko:"밤새 비. 역까지 25분이 아니라 30분이 걸린다.", ben:"Rained all night. The station is 30 minutes now, not 25.", walk:30,
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:390, kind:"wake"},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:420, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"면접 확인 전화", en:"interview call", t:432, kind:"call", dur:6},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:440, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:450, kind:"door", wait:1}
+  ]},
+ {id:4, ko:"검침", en:"METER DAY", bko:"오늘 검침원이 온다. 검침원은 기다려주지 않는다.", ben:"The meter reader comes today. Meter readers do not wait.",
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:390, kind:"wake"},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:420, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:437, kind:"call", dur:6},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:442, kind:"leave"},
+   {id:"door", tag:"METER",ko:"검침원", en:"meter reader", t:455, kind:"door", wait:0}
+  ]},
+ {id:5, ko:"안내 문자", en:"THE TEXT", bko:"새벽 문자: 오늘만 07:58 발차. 그리고 마지막 수거일.", ben:"A text at dawn: today only, the train leaves 07:58. And the last collection day.", depart:478,
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:385, kind:"wake"},
+   {id:"trash",tag:"TRASH",ko:"봉투 내놓기", en:"trash out", t:398, kind:"window", win:[422,422]},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:415, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:425, kind:"call", dur:6},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:435, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:448, kind:"door", wait:1}
+  ]}
+];
+
+E.CARDS=[
+ {id:"bag",   ko:"미리 싼 가방", en:"PACKED BAG", uko:"이동 -3분", uen:"walk -3 min", dko:"여유 마감 -10분", den:"calm cutoff -10", up:s=>s.walk-=3, down:s=>s.coffee-=10},
+ {id:"memo",  ko:"문 앞 메모", en:"DOOR MEMO", uko:"택배·방문 자동 응대", uen:"door auto-answered", dko:"오늘 여유(커피) 없음", den:"no calm today", up:s=>s.doorAuto=true, down:s=>s.coffee=-1},
+ {id:"tone",  ko:"새 알람음", en:"NEW TONE", uko:"미루기가 +7분", uen:"snooze is +7", dko:"자연 기상 없음", den:"no natural wake", up:s=>s.snzMin=7, down:s=>s.natural=9999},
+ {id:"pods",  ko:"이어폰", en:"EARBUDS", uko:"걸으며 통화 가능", uen:"can call while walking", dko:"통화 중 초인종 못 들음", den:"deaf to door while on call", up:s=>s.walkCall=true, down:s=>s.busyDeaf=true},
+ {id:"kettle",ko:"원두 예약", en:"KETTLE TIMER", uko:"여유 마감 +15분", uen:"calm cutoff +15", dko:"약 마감 -10분", den:"pill window -10", up:s=>s.coffee+=15, down:s=>s.pillTighter=(s.pillTighter||0)+10},
+ {id:"pass",  ko:"정기권", en:"TRANSIT PASS", uko:"지각 유예 +6분", uen:"late margin +6", dko:"이동 +1분", den:"walk +1 min", up:s=>s.lateGrace=6, down:s=>s.walk+=1},
+ {id:"note",  ko:"포스트잇", en:"STICKY NOTE", uko:"예보줄에 출발 시한 표시", uen:"forecast shows leave-by", dko:"미루기가 +11분", den:"snooze is +11", up:s=>s.showLeaveBy=true, down:s=>s.snzMin=11}
+];
+
+E.MAILS=[
+ {ko:"수신: 김서혜 — 관리비 연체 고지서. 3개월치다.", en:"To: Kim Seo-hye — overdue building fees. Three months' worth."},
+ {ko:"수신: 김서혜 — 도서관 반납 독촉장. 『야간 비행』, 122일 연체.", en:"To: Kim Seo-hye — library notice. 'Night Flight', 122 days overdue."},
+ {ko:"손글씨 엽서: \"서혜야, 새 주소를 모르겠어. 너 요즘도 아침이 어렵니. — H\"", en:"A handwritten card: \"Seo-hye, I don't know your new address. Are mornings still hard for you? — H\""},
+ {ko:"수신: 김서혜 — 수면 클리닉 재검진 안내. 예약일은 지났다.", en:"To: Kim Seo-hye — sleep clinic follow-up. The appointment date has passed."},
+ {ko:"두꺼운 봉투. 발신인 H. 아직 열지 않았다.", en:"A thick envelope. From H. Unopened."}
+];
+
+/* ---- build one morning: base day + carries + card ---- */
+E.buildDay=function(idx, carry, cardId){
+  const D=E.DAYS[idx];
+  const s={
+    dayIdx:idx, dayNo:D.id, now:E.START, awake:false, wakeOff:false, busyUntil:0,
+    left:false, leaveTime:null, wakeTime:null, snz:0, snoozed:{}, res:{}, seq:[],
+    walk:D.walk||E.WALK, depart:D.depart||E.DEPART, coffee:E.COFFEE, natural:E.NATURAL,
+    snzMin:9, lateGrace:0, doorAuto:false, walkCall:false, busyDeaf:false,
+    showLeaveBy:false, pillTighter:0, coffeeGiven:false, notes:[], done:false,
+    alarms:D.alarms.map(a=>({...a, st:"pending", snoozes:0, lock:false}))
+  };
+  /* carries — 잔여/규칙/예외 */
+  (carry||[]).forEach(c=>{
+    if(c==="pickup"){
+      s.alarms.push({id:"pickup", tag:"PICKUP", ko:"편의점 택배 수령", en:"parcel pickup", t:468, kind:"street", win:[477,477], st:"pending", snoozes:0, lock:true});
+      s.notes.push({ko:"어제 문을 놓쳤다 → 07:48 편의점 수령 (길에서 가능)", en:"missed the door yesterday → 07:48 pickup (works en route)"});
+    }
+    if(c==="pill"){ s.pillTighter+=10; s.notes.push({ko:"어제 약을 걸렀다 → 몸이 무겁다. 약 마감 -10분", en:"skipped the pill → heavy body. pill window -10"}); }
+    if(c==="call"){
+      const call=s.alarms.find(a=>a.kind==="call");
+      if(call){ call.t-=10; call.dur=8; s.notes.push({ko:"어제 전화를 씹었다 → 걱정한 상대가 더 일찍, 더 길게 건다 (8분)", en:"ignored the call → they call earlier, and longer (8 min)"}); }
+    }
+    if(c && c.lock){
+      const a=s.alarms.find(x=>x.id===c.lock);
+      if(a && a.kind!=="door"){ a.t+=9; a.lock=true; s.notes.push({ko:"「"+a.ko+"」을 이틀 연속 미뤘다 → 몸이 기억한다: +9 고정, 더는 못 미룸", en:"snoozed '"+a.en+"' two days straight → body remembers: fixed at +9, no more snoozing"}); }
+    }
+    if(c==="light"){
+      const w=s.alarms.find(a=>a.kind==="wake");
+      if(w){ w.st="done"; s.awake=true; s.wakeTime=E.START; s.coffeeGiven=true; s.res.coffee="ok"; }
+      s.pillTighter+=10;
+      s.notes.push({ko:"완벽한 아침 + 무스누즈 → 몸이 가볍다: 알람 전에 깼다 (여유 확보 / 약 마감 -10)", en:"perfect & snooze-free → light body: up before the alarm (calm secured / pill -10)"});
+    }
+  });
+  /* card — 내일 카드 (오늘 하루) */
+  if(cardId){
+    const c=E.CARDS.find(x=>x.id===cardId);
+    if(c){ c.up(s); c.down(s); s.card=c.id;
+      s.notes.push({ko:"카드 「"+c.ko+"」: "+c.uko+" / "+c.dko, en:"card '"+c.en+"': "+c.uen+" / "+c.den}); }
+  }
+  s.pillOk=440-s.pillTighter; s.pillWarn=465-s.pillTighter;
+  s.leaveBy=s.depart-s.walk;
+  return s;
+};
+
+/* ---- verdict helpers ---- */
+E.pillVerd=(s,t)=> t<=s.pillOk?"ok": t<=s.pillWarn?"warn":"bad";
+E.callVerd=(s,t,dur)=>{ const end=t+dur; return end<=470?"ok": end<=s.depart?"warn":"bad"; };
+E.trainVerd=(s,t)=> t<=s.leaveBy?"ok": t<=s.leaveBy+6+s.lateGrace?"warn":"bad";
+E.winVerd=(a,s,t)=> a.id==="pill"? E.pillVerd(s,t) : t<=a.win[0]?"ok": t<=a.win[1]?"warn":"bad";
+
+/* ---- one minute tick. returns {ring:alarm}|{end:true}|null ---- */
+E.step=function(s){
+  s.now++;
+  if(!s.awake && s.wakeOff && s.now>=s.natural && s.now<E.END){
+    s.awake=true; s.wakeTime=s.now;
+    const w=s.alarms.find(a=>a.kind==="wake"); if(w&&w.st==="pending") w.st="done";
+    s.ev={type:"natural"};
+  }
+  /* door auto-fail: left home, or deaf while on call */
+  s.alarms.forEach(a=>{
+    if(a.kind==="door" && a.st==="pending" && s.now>=a.t){
+      if(s.left){ a.st="done"; s.res[a.id]="bad"; s.ev={type:"doorMissLeft",a}; }
+      else if(s.busyDeaf && s.busyUntil>s.now){ a.st="done"; s.res[a.id]="bad"; s.ev={type:"doorDeaf",a}; }
+      else if(s.doorAuto){ a.st="done"; s.res[a.id]="ok"; s.ev={type:"doorAuto",a}; }
+    }
+    if(a.kind==="window" && a.st==="pending" && s.left && s.now>=a.t){
+      a.st="done"; s.res[a.id]="bad";
+    }
+  });
+  if(s.left && s.now>=s.depart){ E.finalize(s); return {end:true}; }
+  if(s.now>=E.END){ E.finalize(s); return {end:true}; }
+  const due=s.alarms.filter(a=>a.st==="pending" && a.t<=s.now && !(s.left && a.kind!=="street")).sort((x,y)=>x.t-y.t)[0];
+  if(due) return {ring:due};
+  return null;
+};
+
+/* ---- actions on a ringing alarm ---- */
+E.canSnz=function(s,a){
+  if(a.lock) return false;
+  if(a.kind==="street") return false;
+  if(a.kind==="door") return a.wait>0 && a.snoozes<a.wait;
+  return a.t+s.snzMin <= E.END-2;
+};
+E.act=function(s,a,what){
+  if(what==="snz"){
+    a.t+=s.snzMin; a.snoozes++; s.snz++; s.snoozed[a.id]=(s.snoozed[a.id]||0)+1;
+    s.seq.push(a.tag+"+"+s.snzMin); return;
+  }
+  if(what==="off"){
+    a.st="done"; s.seq.push(a.tag+"x");
+    if(a.kind==="wake") s.wakeOff=true;
+    else if(a.kind==="window"||a.kind==="street") s.res[a.id]="bad";
+    else if(a.kind==="call") s.res[a.id]="bad";
+    else if(a.kind==="door") s.res[a.id]="bad";
+    return;
+  }
+  /* do */
+  a.st="done"; s.seq.push(a.tag+">");
+  if(a.kind==="wake"){
+    s.awake=true; s.wakeTime=s.now;
+    if(s.coffee>=0 && s.now<=s.coffee){ s.coffeeGiven=true; s.res.coffee="ok"; }
+  }
+  else if(a.kind==="window"||a.kind==="street"){ s.res[a.id]=E.winVerd(a,s,s.now); }
+  else if(a.kind==="call"){ s.busyUntil=s.now+a.dur; s.res[a.id]=E.callVerd(s,s.now,a.dur); }
+  else if(a.kind==="door"){ s.res[a.id]="ok"; }
+  else if(a.kind==="leave"){ E.leave(s); }
+};
+E.leave=function(s){
+  if(s.left||!s.awake) return false;
+  s.left=true; s.leaveTime=s.now; s.seq.push("GO");
+  s.alarms.forEach(a=>{
+    if(a.st!=="pending") return;
+    if(a.kind==="leave"){ a.st="done"; }
+    else if(a.kind==="window"){ a.st="done"; s.res[a.id]="bad"; }
+    else if(a.kind==="call"){
+      a.st="done";
+      if(s.walkCall){ s.res[a.id]=E.callVerd(s,s.now,a.dur); s.busyUntil=s.now+a.dur; }
+      else if(s.now+a.dur<=s.depart){ s.res[a.id]="warn"; }
+      else s.res[a.id]="bad";
+    }
+  });
+  return true;
+};
+E.finalize=function(s){
+  if(s.done) return; s.done=true;
+  s.alarms.forEach(a=>{
+    if(a.st==="pending"){
+      a.st="done";
+      if(a.kind!=="wake"&&a.kind!=="leave"&&s.res[a.id]==null) s.res[a.id]="bad";
+    }
+  });
+  if(s.res.train==null) s.res.train= s.left? E.trainVerd(s,s.leaveTime) : "bad";
+};
+
+/* ---- forecast: "as things stand" — recomputed every input (P8) ---- */
+E.forecast=function(s){
+  const out=[];
+  s.alarms.forEach(a=>{
+    if(a.kind==="wake"||a.kind==="leave") return;
+    let v;
+    if(a.st!=="pending") v=s.res[a.id]||"bad";
+    else if(a.kind==="window"||a.kind==="street") v=E.winVerd(a,s,Math.max(a.t,s.now));
+    else if(a.kind==="call") v=E.callVerd(s,Math.max(a.t,s.now),a.dur);
+    else if(a.kind==="door") v=(s.left||(s.busyDeaf&&s.busyUntil>a.t))?"bad":"ok";
+    out.push({tag:a.tag, v, done:a.st!=="pending"});
+  });
+  let tLeave;
+  if(s.left) tLeave=s.leaveTime;
+  else{ const la=s.alarms.find(a=>a.kind==="leave"); tLeave=Math.max(s.now, la&&la.st==="pending"? la.t : s.now); }
+  out.push({tag:"TRAIN", v:s.left? (s.res.train||E.trainVerd(s,s.leaveTime)) : E.trainVerd(s,tLeave), done:!!s.left});
+  return out;
+};
+
+/* ---- day verdict + carries for tomorrow ---- */
+E.goals=function(s){
+  return s.alarms.filter(a=>a.kind!=="wake"&&a.kind!=="leave").map(a=>({id:a.id,tag:a.tag,ko:a.ko,en:a.en,v:s.res[a.id]||"bad"}))
+    .concat([{id:"train",tag:"TRAIN",ko:"기차",en:"train",v:s.res.train||"bad"}]);
+};
+E.tier=function(s){
+  const g=E.goals(s); const ok=g.filter(x=>x.v==="ok").length, bad=g.filter(x=>x.v==="bad").length;
+  if(ok===g.length && s.coffeeGiven) return 3;
+  if(bad===0 && ok>=g.length-1) return 2;
+  if(ok>=2) return 1;
+  return 0;
+};
+E.carries=function(s,hist){
+  const c=[];
+  const doorBad=s.alarms.some(a=>(a.kind==="door"||a.kind==="street")&&s.res[a.id]==="bad");
+  if(doorBad) c.push("pickup");
+  if(s.res.pill==="bad") c.push("pill");
+  const callA=s.alarms.find(a=>a.kind==="call");
+  if(callA && s.res[callA.id]==="bad") c.push("call");
+  if(hist.length>=1){
+    const prev=hist[hist.length-1];
+    ["wake","pill","call","leave"].forEach(id=>{
+      if((s.snoozed[id]||0)>0 && (prev.snoozed[id]||0)>0) c.push({lock:id});
+    });
+  }
+  if(E.tier(s)===3 && s.snz===0) c.push("light");
+  return c;
+};
+/*ENGINE-END*/
+
+/* ============ UI ============ */
+const $=id=>document.getElementById(id);
+let LANG=localStorage.getItem("snooze_lang")||"ko";
+const T=(ko,en)=>LANG==="ko"?ko:en;
+const TIERS=[["✗ 뒤틀린 아침","A WARPED MORNING","bad"],["△ 절반의 아침","HALF A MORNING","warn"],["✓ 다 해냈다","ALL DONE","ok"],["★ 완벽한 아침","PERFECT MORNING","amberc"]];
+
+let S=null, hist=[], carryNext=[], cardNext=null, mailKept=null, run=null, timer=null, paused=true, montage=false, ringing=null, ghosts=0, adUsed=false;
+
+function saveGame(){
+  localStorage.setItem("snooze_v1", JSON.stringify({day:hist.length, hist:hist.map(h=>({tier:h.tier,snz:h.snz,snoozed:h.snoozed,seq:h.seq})), carryNext, cardNext, mailKept}));
+}
+function loadGame(){
+  try{ return JSON.parse(localStorage.getItem("snooze_v1")||"null"); }catch(e){ return null; }
+}
+function wipe(){ localStorage.removeItem("snooze_v1"); }
+
+/* ---- boot ---- */
+function boot(){
+  const sv=loadGame();
+  const p=$("bootPanel");
+  p.innerHTML=`<h1>SNOOZE</h1><div class="ptag">${T("이사 첫 주 · 아침 다섯 개","MOVE-IN WEEK · FIVE MORNINGS")}</div>
+   <div class="rule">${T("당신은 미룰 수 있다.<br>세계는 기다리지 않는다.","You can snooze.<br>The world won't wait.")}</div>
+   ${sv&&sv.day>0&&sv.day<5? `<button class="go" id="contBtn">▶ ${T("이어서 — DAY "+(sv.day+1),"CONTINUE — DAY "+(sv.day+1))}</button>
+   <button class="go ghostbtn" id="newBtn">${T("처음부터","NEW WEEK")}</button>`
+   : `<button class="go" id="newBtn">▶ ${T("월요일 06:20","MONDAY 06:20")}</button>`}
+   <div class="flavor">${T("설명은 없다. 알람이 울리면 안다.","No tutorial. You'll know when it rings.")}</div>
+   <div class="build-meta" data-build-meta>DEPLOY</div>`;
+  const nb=$("newBtn"); if(nb) nb.onclick=()=>{ wipe(); hist=[]; carryNext=[]; cardNext=null; mailKept=null; $("bootOvl").style.display="none"; startDay(0,true); };
+  const cb=$("contBtn"); if(cb) cb.onclick=()=>{
+    hist=sv.hist.map(h=>({...h})); carryNext=sv.carryNext||[]; cardNext=sv.cardNext||null; mailKept=sv.mailKept;
+    $("bootOvl").style.display="none"; startDay(sv.day,false);
+  };
+}
+
+/* ---- day flow ---- */
+function startDay(idx, coldOpen){
+  S=E.buildDay(idx, carryNext, cardNext);
+  ringing=null; ghosts=0; adUsed=false; montage=false;
+  buildTl(); render(); idleSheet();
+  if(idx===0 && coldOpen){ paused=false; loop(); }  /* cold open — no brief */
+  else showBrief();
+}
+function showBrief(){
+  const D=E.DAYS[S.dayIdx];
+  $("briefPanel").innerHTML=`<div class="ptag">DAY ${S.dayNo} / 5</div>
+   <h1 style="font-size:22px;letter-spacing:3px">${T(D.ko,D.en)}</h1>
+   <div class="rule">${T(D.bko,D.ben)}</div>
+   ${S.notes.length? `<div class="ptag" style="margin-top:10px">${T("오늘의 규칙 — 어제가 만든 것","TODAY'S RULES — MADE BY YESTERDAY")}</div>`+S.notes.map(n=>`<div class="rule"><b>»</b> ${T(n.ko,n.en)}</div>`).join(""):""}
+   <button class="go" id="dayGo">▶ 06:20</button>`;
+  $("briefOvl").style.display="flex";
+  $("dayGo").onclick=()=>{ $("briefOvl").style.display="none"; paused=false; loop(); };
+}
+
+/* ---- timeline ---- */
+const tl=$("tl");
+const pct=m=>((m-E.START)/(E.END+5-E.START)*100);
+function buildTl(){
+  tl.innerHTML="";
+  for(let m=390;m<=480;m+=10){
+    const d=document.createElement("div"); d.className="tick"; d.style.top=pct(m)+"%";
+    if(m%30===0){ const l=document.createElement("label"); l.textContent=E.fmt(m); d.appendChild(l); }
+    tl.appendChild(d);
+  }
+  const lb=document.createElement("div"); lb.className="dline"; lb.style.top=pct(S.leaveBy)+"%";
+  lb.innerHTML=`<label>${T("출발 시한 "+E.fmt(S.leaveBy),"LEAVE BY "+E.fmt(S.leaveBy))}</label>`; tl.appendChild(lb);
+  const dp=document.createElement("div"); dp.className="dline"; dp.style.top=pct(S.depart)+"%"; dp.style.borderTopStyle="double";
+  dp.innerHTML=`<label>${T("발차 "+E.fmt(S.depart),"DEPARTS "+E.fmt(S.depart))}</label>`; tl.appendChild(dp);
+  S.alarms.forEach(a=>addChip(a));
+  const sw=document.createElement("div"); sw.id="sweep"; sw.innerHTML="<b id='swb'>06:20</b>"; tl.appendChild(sw);
+}
+function addChip(a){
+  const c=document.createElement("div"); c.className="chip"; c.id="chip_"+a.id; c.style.top=pct(a.t)+"%";
+  c.innerHTML=`<span>${a.tag}${a.lock?' <span class="lk">LOCK</span>':''}</span><span class="tt">${E.fmt(a.t)}</span>`;
+  if(a.st!=="pending") c.classList.add("done");
+  tl.appendChild(c);
+}
+function moveChip(a){
+  const c=$("chip_"+a.id); if(!c) return;
+  c.style.top=pct(a.t)+"%"; c.querySelector(".tt").textContent=E.fmt(a.t);
+}
+function addGhost(fromT){
+  const g=document.createElement("div"); g.className="ghost"; g.style.top=pct(fromT)+"%"; g.style.right=(90+(ghosts++%3)*34)+"px";
+  g.textContent="+"+S.snzMin+"▸"; tl.appendChild(g);
+}
+function markChip(id,cls){ const c=$("chip_"+id); if(c) c.classList.add(cls); }
+
+/* ---- render / forecast ---- */
+function render(){
+  $("clock").textContent=E.fmt(S.now);
+  const swb=$("swb"); if(swb){ swb.textContent=E.fmt(S.now); $("sweep").style.top=pct(S.now)+"%"; }
+  $("dayChip").textContent="DAY "+S.dayNo+"/5";
+  $("snzChip").textContent="+"+S.snzMin+" x"+S.snz;
+  const f=E.forecast(S);
+  let html="<b>"+T("이대로면","AS IS")+"</b> "+f.map(o=>{
+    const cls=o.v==="ok"?"fok":o.v==="warn"?"fwarn":"fbad";
+    return `<span class="${o.done?'fdim':''}"><span class="${cls}">${o.v==="ok"?"✓":o.v==="warn"?"△":"✗"}</span>${o.tag}</span>`;
+  }).join(" ");
+  if(S.showLeaveBy && !S.left) html+=` <span class="fwarn">| LEAVE BY ${E.fmt(S.leaveBy)}</span>`;
+  $("fc").innerHTML=html;
+  $("leaveBtn").style.display=(S.awake&&!S.left&&!ringing)?"block":"none";
+  $("leaveBtn").textContent="▶ "+T("지금 나간다 · 역까지 "+S.walk+"분","LEAVE NOW · "+S.walk+" min walk");
+}
+
+/* ---- toast ---- */
+let toastTm;
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.style.opacity=1;
+  clearTimeout(toastTm); toastTm=setTimeout(()=>t.style.opacity=0,2000);
+}
+
+/* ---- loop ---- */
+function speed(){ return montage?32:(S.now<S.alarms[0].t-2?55:170); }
+function loop(){ if(paused) return; timer=setTimeout(()=>{ tick(); loop(); }, speed()); }
+function tick(){
+  const r=E.step(S);
+  if(S.ev){ handleEv(S.ev); S.ev=null; }
+  if(r&&r.end){ endDay(); return; }
+  if(r&&r.ring&&!ringing) openRing(r.ring);
+  render();
+}
+function handleEv(ev){
+  if(ev.type==="natural") toast(T("…저절로 깼다. "+E.fmt(S.now),"…woke by yourself. "+E.fmt(S.now)));
+  if(ev.type==="doorMissLeft"){ markChip(ev.a.id,"off"); toast(T("부재중 — 문 앞의 발소리가 멀어진다","not home — footsteps fade from the door")); }
+  if(ev.type==="doorDeaf"){ markChip(ev.a.id,"off"); toast(T("통화 소리에 초인종을 못 들었다","the call drowned out the doorbell")); }
+  if(ev.type==="doorAuto"){ markChip(ev.a.id,"done"); toast(T("메모 덕에 문 앞에 두고 갔다 ✓","the memo worked — left at the door ✓")); }
+}
+
+/* ---- ring sheet ---- */
+function openRing(a){
+  ringing=a; paused=true; clearTimeout(timer);
+  $("chip_"+a.id).classList.add("ring");
+  $("sheetIdle").style.display="none"; $("sheetHead").style.display="flex"; $("btns").style.display="flex";
+  $("shName").innerHTML=`<span class="amberc">▶ ${a.tag}</span> ${T(a.ko,a.en)} — ${E.fmt(S.now)}<span class="sub">${sub(a)}</span>`;
+  const needAwake=(a.kind!=="wake")&&!S.awake;
+  $("bDo").innerHTML=needAwake?`zzz<small>${T("자는 중","asleep")}</small>`:doLabel(a);
+  $("bDo").disabled=needAwake;
+  const can=E.canSnz(S,a);
+  $("bSnz").disabled=!can;
+  $("bSnz").innerHTML=`+${S.snzMin}<small>${can?T(a.kind==="door"?"기다려 달란다":"미루기", a.kind==="door"?"ask to wait":"snooze"):T(a.lock?"고정됨":"못 미룸",a.lock?"locked":"too late")}</small>`;
+  $("bOff").innerHTML=`✕<small>${T("끄기","off")}</small>`;
+  render();
+}
+function doLabel(a){
+  const m={wake:T("일어난다","get up"),window:T("한다","do it"),street:T("받아 간다","grab it"),call:T("받는다","answer"),leave:T("나간다","leave"),door:T("문 연다","open")};
+  return `▶<small>${m[a.kind]}</small>`;
+}
+function sub(a){
+  if(a.kind==="wake") return T("오늘이 시작되려 한다","the day wants to start");
+  if(a.id==="pill") return T("마감 "+E.fmt(S.pillOk)+" (늦으면 △)","by "+E.fmt(S.pillOk)+" (late = △)");
+  if(a.kind==="window") return T("마감 "+E.fmt(a.win[0]),"by "+E.fmt(a.win[0]));
+  if(a.kind==="street") return T("마감 "+E.fmt(a.win[0])+" · 길에서 가능","by "+E.fmt(a.win[0])+" · works en route");
+  if(a.kind==="call") return T("통화 "+a.dur+"분","a "+a.dur+"-min call");
+  if(a.kind==="leave") return T("역까지 "+S.walk+"분 · 시한 "+E.fmt(S.leaveBy),S.walk+" min walk · by "+E.fmt(S.leaveBy));
+  if(a.kind==="door") return a.wait>0&&a.snoozes<a.wait? T("문 밖에 누가 있다 · 한 번은 기다림","someone's outside · will wait once"):T("기다려주지 않는다","won't wait");
+  return "";
+}
+function closeRing(){
+  if(!ringing) return;
+  const c=$("chip_"+ringing.id); if(c) c.classList.remove("ring");
+  ringing=null; idleSheet(); paused=false; render(); loop();
+}
+function idleSheet(){
+  $("sheetHead").style.display="none"; $("btns").style.display="none";
+  $("sheetIdle").style.display="block";
+  $("sheetIdle").textContent=T("... 아침이 흐른다 ...","... morning flows ...");
+}
+$("bSnz").onclick=()=>{ if(!ringing||$("bSnz").disabled) return;
+  const a=ringing; addGhost(a.t); E.act(S,a,"snz"); moveChip(a);
+  toast(a.tag+" +"+S.snzMin+T("분 → ","min → ")+E.fmt(a.t)); closeRing(); };
+$("bOff").onclick=()=>{ if(!ringing) return;
+  const a=ringing; E.act(S,a,"off"); markChip(a.id,"off");
+  toast(a.kind==="wake"?T("껐다. 아무도 깨우지 않는다","off. no one will wake you"):T(a.ko+" — 안 하기로 했다",a.en+" — not doing it"));
+  closeRing(); };
+$("bDo").onclick=()=>{ if(!ringing||$("bDo").disabled) return;
+  const a=ringing; const wasLeave=a.kind==="leave"; E.act(S,a,"do"); markChip(a.id,"done");
+  if(a.kind==="wake") toast(S.coffeeGiven?T("일어났다 — 커피 내릴 시간도 있다 ✓","up — time for coffee ✓"):T("일어났다 "+E.fmt(S.now),"up at "+E.fmt(S.now)));
+  else if(a.kind==="call") toast(T("통화 시작 ("+a.dur+"분)","on the phone ("+a.dur+" min)"));
+  else if(wasLeave){ montage=true; toast(T(E.fmt(S.now)+" 출발 — 역까지 "+S.walk+"분",E.fmt(S.now)+" — walking, "+S.walk+" min")); }
+  else toast(a.tag+" ✓");
+  if(wasLeave){ S.alarms.forEach(x=>{ if(x.st==="done"&&S.res[x.id]==="bad") markChip(x.id,"off"); }); }
+  closeRing(); };
+$("leaveBtn").onclick=()=>{ if(ringing||!S.awake||S.left) return;
+  E.leave(S); montage=true;
+  S.alarms.forEach(x=>{ if(x.st==="done"&&S.res[x.id]==="bad") markChip(x.id,"off"); });
+  toast(T(E.fmt(S.now)+" 출발 — 역까지 "+S.walk+"분",E.fmt(S.now)+" — walking, "+S.walk+" min")); render(); };
+
+/* ---- end of day ---- */
+function endDay(){
+  paused=true; clearTimeout(timer);
+  const tier=E.tier(S);
+  hist.push({tier, snz:S.snz, snoozed:S.snoozed, seq:S.seq});
+  carryNext=E.carries(S,hist.slice(0,-1));
+  cardNext=null;
+  setTimeout(()=>showReport(tier),500);
+}
+function showReport(tier){
+  const g=E.goals(S), tdef=TIERS[tier];
+  const mail=E.MAILS[S.dayIdx];
+  const last=S.dayIdx===4;
+  let html=`<div class="ptag">MORNING REPORT — DAY ${S.dayNo}/5</div>
+   <div class="verdict ${tdef[2]}">${T(tdef[0],"["+tdef[1]+"]")}</div>`;
+  html+=g.map(x=>`<div class="rrow">${x.tag} <span style="color:var(--dim);font-weight:600">${T(x.ko,x.en)}</span><span class="mark ${x.v}">${x.v==="ok"?"✓":x.v==="warn"?"△":"✗"}</span></div>`).join("");
+  html+=`<div class="rrow">CALM <span style="color:var(--dim);font-weight:600">${T("여유","calm")}</span><span class="mark ${S.coffeeGiven?"ok":""}" style="${S.coffeeGiven?"":"color:var(--dim)"}">${S.coffeeGiven?"✓":"—"}</span></div>`;
+  html+=`<div class="stats">${T("기상","wake")} ${S.wakeTime?E.fmt(S.wakeTime):"—"} · +${S.snzMin} x${S.snz} · ${T("출발","left")} ${S.leaveTime?E.fmt(S.leaveTime):"—"}</div>`;
+  html+=`<div id="mailBox"><div class="mh">${T("우편함 — 오늘도 한 통","MAILBOX — ONE MORE TODAY")}</div><span id="mailTxt"></span></div>`;
+  if(last){
+    html+=`<div class="cardRow">
+      <button class="card" id="mailKeep"><b>${T("보관한다","KEEP IT")}</b>${T("서랍에 넣는다. 다섯 통 전부.","Into the drawer. All five.")}</button>
+      <button class="card" id="mailBack"><b>${T("반송한다","SEND BACK")}</b>${T("\"수취인 없음\". 전부 되돌린다.","\"No such resident.\" All of it.")}</button>
+    </div>`;
+  } else {
+    html+=`<div class="ptag" style="margin-top:12px">${T("내일 카드 — 하나만, 내일 하루만","TOMORROW CARD — ONE, FOR ONE DAY")}</div>
+      <div class="cardRow" id="cardRow"></div>
+      <button class="adbtn" id="adBtn">AD ${T("광고 보고 3장 다시 뽑기 (모의)","watch ad, redraw 3 (mock)")}</button>
+      <button class="go ghostbtn" id="skipCard">${T("그냥 잔다 (카드 없이)","JUST SLEEP (no card)")}</button>`;
+  }
+  $("resPanel").innerHTML=html;
+  $("resOvl").style.display="flex";
+  typeMail(T(mail.ko,mail.en));
+  if(last){
+    $("mailKeep").onclick=()=>{ mailKept=true; weekly(); };
+    $("mailBack").onclick=()=>{ mailKept=false; weekly(); };
+  } else {
+    dealCards();
+    $("adBtn").onclick=adRedraw;
+    $("skipCard").onclick=()=>{ cardNext=null; nextDay(); };
+  }
+}
+let mailTm=null;
+function typeMail(txt){
+  clearInterval(mailTm); const el=$("mailTxt"); if(!el) return; el.textContent=""; let i=0;
+  mailTm=setInterval(()=>{ el.textContent=txt.slice(0,++i); if(i>=txt.length) clearInterval(mailTm); },16);
+}
+function draw3(){
+  const pool=[...E.CARDS]; const out=[];
+  while(out.length<3){ out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
+  return out;
+}
+function dealCards(){
+  const cs=draw3();
+  $("cardRow").innerHTML=cs.map(c=>`<button class="card" data-c="${c.id}"><b>${T(c.ko,c.en)}</b><span class="up">+ ${T(c.uko,c.uen)}</span><br><span class="dn">− ${T(c.dko,c.den)}</span></button>`).join("");
+  $("cardRow").querySelectorAll(".card").forEach(b=>b.onclick=()=>{ cardNext=b.dataset.c; nextDay(); });
+}
+function adRedraw(){
+  if(adUsed) return; adUsed=true;
+  const b=$("adBtn"); let n=3; b.disabled=true; b.textContent="AD ▶ "+n;
+  const iv=setInterval(()=>{ n--; if(n<=0){ clearInterval(iv); b.textContent="AD ✓"; dealCards(); } else b.textContent="AD ▶ "+n; },700);
+}
+function nextDay(){
+  saveGame();
+  $("resOvl").style.display="none";
+  startDay(S.dayIdx+1,false);
+}
+function weekly(){
+  saveGame();
+  const names=["MON","TUE","WED","THU","FRI"];
+  const tot=hist.reduce((a,h)=>a+h.snz,0), perf=hist.filter(h=>h.tier===3).length;
+  let html=`<div class="ptag">WEEKLY REPORT — ${T("이사 첫 주","MOVE-IN WEEK")}</div>
+   <div class="wk">${hist.map((h,i)=>`<div>${names[i]}<b class="${TIERS[h.tier][2]}">${h.tier===3?"★":h.tier===2?"✓":h.tier===1?"△":"✗"}</b></div>`).join("")}</div>
+   <div class="stats">${T("완벽한 아침","perfect mornings")} ${perf}/5 · ${T("총 미루기","total snoozes")} x${tot}</div>
+   <div id="mailBox" style="margin-top:14px"><div class="mh">${T("다섯 통의 우편","FIVE LETTERS")}</div>${
+     mailKept? T("서랍 안에서 봉투가 아침마다 조금씩 무거워진다.<br>김서혜의 아침은 어땠을까. 어렵다는 그 아침은.","The envelopes sit in the drawer, a little heavier each morning.<br>What were Kim Seo-hye's mornings like — the hard ones?")
+     : T("\"수취인 없음\". 전부 돌려보냈다.<br>남의 아침은 남의 것이다. 그래도 H의 봉투는 두꺼웠다.","\"No such resident.\" All returned.<br>Other people's mornings are their own. Still — H's envelope was thick.")
+   }</div>
+   <div class="flavor">${T("다음 주: 첫 출근. 아침은 또 온다.","Next week: first day at work. Mornings keep coming.")}</div>
+   <button class="go" id="againW">⟳ ${T("새로운 한 주","ANOTHER WEEK")}</button>
+   <div class="build-meta" data-build-meta>DEPLOY</div>`;
+  $("resPanel").innerHTML=html;
+  $("againW").onclick=()=>{ wipe(); hist=[]; carryNext=[]; cardNext=null; mailKept=null; $("resOvl").style.display="none"; startDay(0,true); };
+}
+
+/* ---- lang ---- */
+$("langBtn").textContent=LANG==="ko"?"EN":"KO";
+$("langBtn").onclick=()=>{
+  LANG=LANG==="ko"?"en":"ko"; localStorage.setItem("snooze_lang",LANG);
+  $("langBtn").textContent=LANG==="ko"?"EN":"KO";
+  if(S&&!S.done){ buildTl(); render(); if(ringing){ const a=ringing; ringing=null; openRing(a); } else idleSheet(); }
+};
+
+boot();
+</script>
+</body>
+</html>

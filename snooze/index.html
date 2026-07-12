@@ -92,6 +92,8 @@
   .wk{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin:12px 0; }
   .wk div{ border:1px solid var(--line); padding:8px 2px; font-size:11px; text-align:center; }
   .wk b{ display:block; font-size:14px; margin-top:3px; }
+  .stamp{ animation:stampin .45s cubic-bezier(.2,1.4,.4,1); text-align:center; }
+  @keyframes stampin{ 0%{ transform:scale(1.7); opacity:0; } 60%{ transform:scale(.96); opacity:1; } 100%{ transform:scale(1); } }
 </style>
 </head>
 <body>
@@ -179,7 +181,71 @@ E.DAYS=[
    {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:425, kind:"call", dur:6},
    {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:435, kind:"leave"},
    {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:448, kind:"door", wait:1}
+  ]},
+ /* ---- chapter 2: 첫 출근 주 ---- */
+ {id:6, ko:"첫 출근", en:"FIRST DAY", bko:"오늘부터 회사. 이 기차는 놓치면 변명이 안 된다 — 지각 유예 없음.", ben:"Work starts today. Miss this train and no excuse counts — zero late margin.", depart:480, warnBand:0,
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:385, kind:"wake"},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:415, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:425, kind:"call", dur:6},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:435, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:448, kind:"door", wait:1}
+  ]},
+ {id:7, ko:"두 통의 전화", en:"TWO CALLS", bko:"업무 모드: 통화 중에 걸려온 전화는 부재중이 된다. 엄마와 팀장이 둘 다 건다.", ben:"Work mode: a call during a call goes to voicemail. Mom and the team lead both dial.",
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:390, kind:"wake"},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:412, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:420, kind:"call", dur:6, missIfBusy:true},
+   {id:"call2",tag:"BOSS", ko:"팀장 전화", en:"team lead", t:428, kind:"call", dur:4, missIfBusy:true},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:442, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:455, kind:"door", wait:1}
+  ]},
+ {id:8, ko:"문 두 개", en:"TWO DOORS", bko:"반품 기사는 기다리지 않고, 소포 기사는 한 번은 기다린다. 오늘은 문이 두 번 울린다.", ben:"The return courier won't wait; the parcel one waits once. The door rings twice today.",
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:390, kind:"wake"},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:420, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:432, kind:"call", dur:6, missIfBusy:true},
+   {id:"door", tag:"RETURN",ko:"반품 기사", en:"return courier", t:445, kind:"door", wait:0},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:448, kind:"leave"},
+   {id:"door2",tag:"DOOR", ko:"소포", en:"parcel", t:456, kind:"door", wait:1}
+  ]},
+ {id:9, ko:"정전", en:"BLACKOUT", bko:"밤새 정전 — 기상 알람이 죽었다. 해가 뜨면 저절로 깬다. 촛불 옆에서 내린 커피는 06:20~07:05만 여유로 친다.", ben:"Blackout overnight — the wake alarm is dead. You'll wake with the sun. Candle-side coffee counts as calm only till 07:05.", noWake:true, natural:410, coffee:425,
+  alarms:[
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:422, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:431, kind:"call", dur:6, missIfBusy:true},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:443, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:452, kind:"door", wait:1}
+  ]},
+ {id:10, ko:"결과 전화", en:"THE CALL", bko:"오늘 면접 결과 전화가 온다. 딱 한 번 — 미룰 수 없고, 통화 중이면 놓친다.", ben:"The interview result comes today. Once — can't be snoozed, and a busy line loses it.",
+  alarms:[
+   {id:"wake", tag:"WAKE", ko:"기상", en:"wake", t:388, kind:"wake"},
+   {id:"pill", tag:"PILL", ko:"약", en:"pill", t:418, kind:"window", win:[440,465]},
+   {id:"call", tag:"CALL", ko:"엄마 전화", en:"mom's call", t:421, kind:"call", dur:4, missIfBusy:true},
+   {id:"callR",tag:"RESULT",ko:"결과 전화", en:"the result", t:430, kind:"call", dur:4, missIfBusy:true, lock:true},
+   {id:"leave",tag:"LEAVE",ko:"출발", en:"leave", t:440, kind:"leave"},
+   {id:"door", tag:"DOOR", ko:"초인종", en:"doorbell", t:451, kind:"door", wait:1}
   ]}
+];
+
+/* 밤 사이 — 런 사이 서사 드립 (brief 화면, dayIdx 1..9) */
+E.DRIPS=[null,
+ {ko:"새벽 세 시, 윗집에서 알람이 아홉 번 울렸다. 아무도 끄지 않았다.", en:"3 AM — an alarm upstairs rang nine times. No one turned it off."},
+ {ko:"냉장고 뒤에서 자석 메모가 나왔다. \"커피 먼저. 그 다음은 어떻게든 된다. — 서혜\"", en:"A magnet note behind the fridge: \"Coffee first. The rest follows. — Seo-hye\""},
+ {ko:"옆집 노인이 물었다. \"새로 온 분이오? 전에 살던 아가씨는 늘 뛰어나가던데.\"", en:"The old neighbor asked: \"New here? The girl before you was always running out the door.\""},
+ {ko:"우편함 바닥, 반쯤 지워진 볼펜 글씨: \"9분만 더\"", en:"At the bottom of the mailbox, half-erased ink: \"just nine more minutes\""},
+ {ko:"첫 출근 전날 밤, 벽 너머 시계 초침 소리가 유난히 컸다.", en:"Night before the first day, the ticking beyond the wall was too loud."},
+ {ko:"경비실이 말했다. 서혜 앞 소포를 아직 보관 중이라고. 오늘로 133일째.", en:"The guard still holds a parcel for Seo-hye. Day 133 today."},
+ {ko:"H의 엽서가 또 왔다. 이번엔 수신인 칸에 내 이름이 있었다.", en:"Another card from H. This time, my name in the address line."},
+ {ko:"정전된 밤, 온 동네의 알람이 일제히 침묵했다. 이 집에 와서 처음으로 푹 잤다.", en:"The blackout silenced every alarm on the block. First deep sleep since moving in."},
+ {ko:"H의 마지막 줄: \"서혜는 아침을 이긴 적이 한 번도 없어요. 당신은 어떤가요.\"", en:"H's last line: \"Seo-hye never once beat the morning. How about you?\""}
+];
+
+E.MAILS2=[
+ {ko:"수신: 나 — 첫 출근 안내문. 08:00까지. 내 이름이 인쇄된 첫 우편이다.", en:"To: me — first-day notice, be there by 08:00. The first mail printed with my name."},
+ {ko:"경비실 쪽지: \"서혜 씨 소포, 이번 주까지만 보관합니다.\"", en:"Guard's note: \"Seo-hye's parcel — held only through this week.\""},
+ {ko:"H의 편지: \"그 집, 아침 해가 어느 창으로 드는지 아직 기억해요.\"", en:"H writes: \"I still remember which window the morning sun comes through, in that room.\""},
+ {ko:"수면 클리닉 안내문이 다시 왔다 — 수신인이 정정되어 있었다. 이번엔 내 이름이다.", en:"The sleep clinic letter came again — the name corrected. Mine, this time."},
+ {ko:"서혜의 소포를 대신 받았다. 가볍다. 흔들면 마른 소리가 난다.", en:"I signed for Seo-hye's parcel. It's light. It rattles, dry, when shaken."}
 ];
 
 E.CARDS=[
@@ -189,7 +255,12 @@ E.CARDS=[
  {id:"pods",  ko:"이어폰", en:"EARBUDS", uko:"걸으며 통화 가능", uen:"can call while walking", dko:"통화 중 초인종 못 들음", den:"deaf to door while on call", up:s=>s.walkCall=true, down:s=>s.busyDeaf=true},
  {id:"kettle",ko:"원두 예약", en:"KETTLE TIMER", uko:"여유 마감 +15분", uen:"calm cutoff +15", dko:"약 마감 -10분", den:"pill window -10", up:s=>s.coffee+=15, down:s=>s.pillTighter=(s.pillTighter||0)+10},
  {id:"pass",  ko:"정기권", en:"TRANSIT PASS", uko:"지각 유예 +6분", uen:"late margin +6", dko:"이동 +1분", den:"walk +1 min", up:s=>s.lateGrace=6, down:s=>s.walk+=1},
- {id:"note",  ko:"포스트잇", en:"STICKY NOTE", uko:"예보줄에 출발 시한 표시", uen:"forecast shows leave-by", dko:"미루기가 +11분", den:"snooze is +11", up:s=>s.showLeaveBy=true, down:s=>s.snzMin=11}
+ {id:"note",  ko:"포스트잇", en:"STICKY NOTE", uko:"예보줄에 출발 시한 표시", uen:"forecast shows leave-by", dko:"미루기가 +11분", den:"snooze is +11", up:s=>s.showLeaveBy=true, down:s=>s.snzMin=11},
+ {id:"timer", ko:"타이머 콘센트", en:"OUTLET TIMER", uko:"집안일 마감 +10분", uen:"chores deadline +10", dko:"이동 +1분 (짐)", den:"walk +1 (stuff)", up:s=>s.chWin=10, down:s=>s.walk+=1},
+ {id:"script",ko:"통화 스크립트", en:"CALL SCRIPT", uko:"통화 -2분", uen:"calls 2 min shorter", dko:"통화는 완벽 아니면 실패 (△ 없음)", den:"calls: perfect or failed (no △)", up:s=>s.callFast=2, down:s=>s.callNoWarn=true},
+ {id:"kind",  ko:"친절한 쪽지", en:"KIND NOTE", uko:"방문자가 한 번 더 기다림", uen:"visitors wait one more time", dko:"여유 마감 -5분", den:"calm cutoff -5", up:s=>s.doorWaitPlus=1, down:s=>s.coffee-=5},
+ {id:"train2",ko:"다음 차편 알림", en:"NEXT TRAIN", uko:"발차 +4분", uen:"departure +4 min", dko:"지각 유예 없음", den:"zero late margin", up:s=>s.depart+=4, down:s=>s.warnBand=0},
+ {id:"curtain",ko:"얇은 커튼", en:"THIN CURTAIN", uko:"햇빛에 06:50 자연 기상", uen:"sunlight wakes you 06:50", dko:"여유 마감 -10분 (부산한 빛)", den:"calm cutoff -10 (restless light)", up:s=>s.natural=Math.min(s.natural,410), down:s=>s.coffee-=10}
 ];
 
 E.MAILS=[
@@ -206,11 +277,14 @@ E.buildDay=function(idx, carry, cardId){
   const s={
     dayIdx:idx, dayNo:D.id, now:E.START, awake:false, wakeOff:false, busyUntil:0,
     left:false, leaveTime:null, wakeTime:null, snz:0, snoozed:{}, res:{}, seq:[],
-    walk:D.walk||E.WALK, depart:D.depart||E.DEPART, coffee:E.COFFEE, natural:E.NATURAL,
+    walk:D.walk||E.WALK, depart:D.depart||E.DEPART, coffee:D.coffee!=null?D.coffee:E.COFFEE, natural:D.natural!=null?D.natural:E.NATURAL,
+    warnBand:D.warnBand!=null?D.warnBand:null,
     snzMin:9, lateGrace:0, doorAuto:false, walkCall:false, busyDeaf:false,
+    chWin:0, callFast:0, callNoWarn:false, doorWaitPlus:0,
     showLeaveBy:false, pillTighter:0, coffeeGiven:false, notes:[], done:false,
-    alarms:D.alarms.map(a=>({...a, st:"pending", snoozes:0, lock:false}))
+    alarms:D.alarms.map(a=>({...a, st:"pending", snoozes:0, lock:!!a.lock}))
   };
+  if(D.noWake) s.wakeOff=true; /* 정전 — 알람 없이 자연 기상만 */
   /* carries — 잔여/규칙/예외 */
   (carry||[]).forEach(c=>{
     if(c==="pickup"){
@@ -232,6 +306,27 @@ E.buildDay=function(idx, carry, cardId){
       s.pillTighter+=10;
       s.notes.push({ko:"완벽한 아침 + 무스누즈 → 몸이 가볍다: 알람 전에 깼다 (여유 확보 / 약 마감 -10)", en:"perfect & snooze-free → light body: up before the alarm (calm secured / pill -10)"});
     }
+    if(c==="chore"){
+      s.alarms.push({id:"chore", tag:"BAG", ko:"밀린 봉투", en:"backlog bag", t:405, kind:"window", win:[430,430], st:"pending", snoozes:0, lock:false});
+      s.notes.push({ko:"어제 집안일을 놓쳤다 → 밀린 봉투가 오늘 아침 첫 칸을 차지한다 (마감 07:10)", en:"missed a chore yesterday → the backlog bag takes today's first slot (by 07:10)"});
+    }
+    if(c==="pickup2"){
+      s.alarms.push({id:"pickup", tag:"PICKUP", ko:"경비실 회수", en:"guard-desk pickup", t:466, kind:"street", win:[474,474], st:"pending", snoozes:0, lock:true});
+      s.notes.push({ko:"이틀 연속 문을 놓쳤다 → 경비실 보관으로 넘어갔다: 07:46, 마감 07:54 (더 빡빡)", en:"missed the door two days straight → moved to the guard desk: 07:46, by 07:54 (tighter)"});
+    }
+    if(c==="route"){
+      s.walk=Math.max(15,s.walk-2); s.coffee-=5;
+      s.notes.push({ko:"이틀 연속 일찍 나섰다 → 몸이 길을 외웠다: 이동 -2분 / 서두르는 습관: 여유 마감 -5분", en:"left early two days straight → your feet know the way: walk -2 / hurried habit: calm -5"});
+    }
+    if(c==="rhythm"){
+      s.showLeaveBy=true;
+      s.notes.push({ko:"완벽한 아침 3연속 → 리듬: 예보줄에 출발 시한이 보인다 (지난밤엔 카드 없이 잤다)", en:"three perfect mornings → rhythm: the forecast shows your leave-by (no card last night)"});
+    }
+    if(c==="bigstep"){
+      s.snzMin=12;
+      const w=s.alarms.find(a=>a.kind==="wake"); if(w&&w.st==="pending") w.t+=5;
+      s.notes.push({ko:"이틀 연속 무스누즈 → 알람이 무섭지 않다: 미루기가 +12 (더 큰 도미노) / 기상 알람 5분 늦게", en:"two snooze-free days → alarms lost their teeth: snooze is +12 (bigger dominoes) / wake rings 5 late"});
+    }
   });
   /* card — 내일 카드 (오늘 하루) */
   if(cardId){
@@ -239,6 +334,7 @@ E.buildDay=function(idx, carry, cardId){
     if(c){ c.up(s); c.down(s); s.card=c.id;
       s.notes.push({ko:"카드 「"+c.ko+"」: "+c.uko+" / "+c.dko, en:"card '"+c.en+"': "+c.uen+" / "+c.den}); }
   }
+  if(s.callFast) s.alarms.forEach(a=>{ if(a.kind==="call") a.dur=Math.max(2,a.dur-s.callFast); });
   s.pillOk=440-s.pillTighter; s.pillWarn=465-s.pillTighter;
   s.leaveBy=s.depart-s.walk;
   return s;
@@ -246,18 +342,25 @@ E.buildDay=function(idx, carry, cardId){
 
 /* ---- verdict helpers ---- */
 E.pillVerd=(s,t)=> t<=s.pillOk?"ok": t<=s.pillWarn?"warn":"bad";
-E.callVerd=(s,t,dur)=>{ const end=t+dur; return end<=470?"ok": end<=s.depart?"warn":"bad"; };
-E.trainVerd=(s,t)=> t<=s.leaveBy?"ok": t<=s.leaveBy+6+s.lateGrace?"warn":"bad";
-E.winVerd=(a,s,t)=> a.id==="pill"? E.pillVerd(s,t) : t<=a.win[0]?"ok": t<=a.win[1]?"warn":"bad";
+E.callVerd=(s,t,dur)=>{ const end=t+dur; if(s.callNoWarn) return end<=470?"ok":"bad"; return end<=470?"ok": end<=s.depart?"warn":"bad"; };
+E.trainVerd=(s,t)=>{ const wb=(s.warnBand!=null?s.warnBand:6)+s.lateGrace; return t<=s.leaveBy?"ok": t<=s.leaveBy+wb?"warn":"bad"; };
+E.winVerd=(a,s,t)=>{ if(a.id==="pill") return E.pillVerd(s,t); const ext=(a.id==="trash"||a.id==="chore")?(s.chWin||0):0; return t<=a.win[0]+ext?"ok": t<=a.win[1]+ext?"warn":"bad"; };
 
 /* ---- one minute tick. returns {ring:alarm}|{end:true}|null ---- */
 E.step=function(s){
   s.now++;
   if(!s.awake && s.wakeOff && s.now>=s.natural && s.now<E.END){
     s.awake=true; s.wakeTime=s.now;
+    if(s.now<=s.coffee){ s.coffeeGiven=true; s.res.coffee="ok"; } /* 정전·커튼 — 이른 자연 기상은 여유를 준다 */
     const w=s.alarms.find(a=>a.kind==="wake"); if(w&&w.st==="pending") w.st="done";
     s.ev={type:"natural"};
   }
+  /* 업무 모드: 통화 중 걸려온 전화는 부재중 */
+  s.alarms.forEach(a=>{
+    if(a.kind==="call" && a.missIfBusy && a.st==="pending" && s.now>=a.t && s.busyUntil>s.now){
+      a.st="done"; s.res[a.id]="bad"; s.ev={type:"callBusy",a};
+    }
+  });
   /* door auto-fail: left home, or deaf while on call */
   s.alarms.forEach(a=>{
     if(a.kind==="door" && a.st==="pending" && s.now>=a.t){
@@ -280,7 +383,7 @@ E.step=function(s){
 E.canSnz=function(s,a){
   if(a.lock) return false;
   if(a.kind==="street") return false;
-  if(a.kind==="door") return a.wait>0 && a.snoozes<a.wait;
+  if(a.kind==="door"){ const w=a.wait+(s.doorWaitPlus||0); return w>0 && a.snoozes<w; }
   return a.t+s.snzMin <= E.END-2;
 };
 E.act=function(s,a,what){
@@ -365,20 +468,33 @@ E.tier=function(s){
   if(ok>=2) return 1;
   return 0;
 };
+E.mkHist=function(s){
+  return { tier:E.tier(s), snz:s.snz, snoozed:s.snoozed, seq:s.seq,
+    doorBad:s.alarms.some(a=>(a.kind==="door"||a.kind==="street")&&s.res[a.id]==="bad"),
+    choreBad:s.alarms.some(a=>(a.id==="trash"||a.id==="chore")&&s.res[a.id]==="bad"),
+    early:!!(s.leaveTime&&s.leaveTime<=s.leaveBy-5) };
+};
 E.carries=function(s,hist){
-  const c=[];
-  const doorBad=s.alarms.some(a=>(a.kind==="door"||a.kind==="street")&&s.res[a.id]==="bad");
-  if(doorBad) c.push("pickup");
+  const c=[]; const h=E.mkHist(s);
+  const prev=hist.length>=1?hist[hist.length-1]:null;
+  const prev2=hist.length>=2?hist[hist.length-2]:null;
+  /* 잔여 — 어제의 미해결 */
+  if(h.doorBad) c.push(prev&&prev.doorBad?"pickup2":"pickup");
   if(s.res.pill==="bad") c.push("pill");
   const callA=s.alarms.find(a=>a.kind==="call");
   if(callA && s.res[callA.id]==="bad") c.push("call");
-  if(hist.length>=1){
-    const prev=hist[hist.length-1];
+  if(h.choreBad) c.push("chore");
+  /* 규칙 — 반복이 공식화된다 */
+  if(prev){
     ["wake","pill","call","leave"].forEach(id=>{
       if((s.snoozed[id]||0)>0 && (prev.snoozed[id]||0)>0) c.push({lock:id});
     });
+    if(h.early && prev.early) c.push("route");
+    if(s.snz===0 && prev.snz===0 && !(h.tier===3&&s.snz===0)) c.push("bigstep");
   }
-  if(E.tier(s)===3 && s.snz===0) c.push("light");
+  /* 예외 — 드문 조합 */
+  if(h.tier===3 && s.snz===0) c.push("light");
+  if(h.tier===3 && prev&&prev.tier===3 && prev2&&prev2.tier===3) c.push("rhythm");
   return c;
 };
 /*ENGINE-END*/
@@ -389,10 +505,10 @@ let LANG=localStorage.getItem("snooze_lang")||"ko";
 const T=(ko,en)=>LANG==="ko"?ko:en;
 const TIERS=[["✗ 뒤틀린 아침","A WARPED MORNING","bad"],["△ 절반의 아침","HALF A MORNING","warn"],["✓ 다 해냈다","ALL DONE","ok"],["★ 완벽한 아침","PERFECT MORNING","amberc"]];
 
-let S=null, hist=[], carryNext=[], cardNext=null, mailKept=null, run=null, timer=null, paused=true, montage=false, ringing=null, ghosts=0, adUsed=false;
+let S=null, hist=[], carryNext=[], cardNext=null, mailKept=null, parcelOpen=null, run=null, timer=null, paused=true, montage=false, ringing=null, ghosts=0, adUsed=false;
 
 function saveGame(){
-  localStorage.setItem("snooze_v1", JSON.stringify({day:hist.length, hist:hist.map(h=>({tier:h.tier,snz:h.snz,snoozed:h.snoozed,seq:h.seq})), carryNext, cardNext, mailKept}));
+  localStorage.setItem("snooze_v1", JSON.stringify({day:hist.length, hist:hist.map(h=>({tier:h.tier,snz:h.snz,snoozed:h.snoozed,doorBad:h.doorBad,choreBad:h.choreBad,early:h.early})), carryNext, cardNext, mailKept, parcelOpen}));
 }
 function loadGame(){
   try{ return JSON.parse(localStorage.getItem("snooze_v1")||"null"); }catch(e){ return null; }
@@ -405,14 +521,14 @@ function boot(){
   const p=$("bootPanel");
   p.innerHTML=`<h1>SNOOZE</h1><div class="ptag">${T("이사 첫 주 · 아침 다섯 개","MOVE-IN WEEK · FIVE MORNINGS")}</div>
    <div class="rule">${T("당신은 미룰 수 있다.<br>세계는 기다리지 않는다.","You can snooze.<br>The world won't wait.")}</div>
-   ${sv&&sv.day>0&&sv.day<5? `<button class="go" id="contBtn">▶ ${T("이어서 — DAY "+(sv.day+1),"CONTINUE — DAY "+(sv.day+1))}</button>
+   ${sv&&sv.day>0&&sv.day<10? `<button class="go" id="contBtn">▶ ${T("이어서 — DAY "+(sv.day+1)+"/10","CONTINUE — DAY "+(sv.day+1)+"/10")}</button>
    <button class="go ghostbtn" id="newBtn">${T("처음부터","NEW WEEK")}</button>`
    : `<button class="go" id="newBtn">▶ ${T("월요일 06:20","MONDAY 06:20")}</button>`}
    <div class="flavor">${T("설명은 없다. 알람이 울리면 안다.","No tutorial. You'll know when it rings.")}</div>
    <div class="build-meta" data-build-meta>DEPLOY</div>`;
   const nb=$("newBtn"); if(nb) nb.onclick=()=>{ wipe(); hist=[]; carryNext=[]; cardNext=null; mailKept=null; $("bootOvl").style.display="none"; startDay(0,true); };
   const cb=$("contBtn"); if(cb) cb.onclick=()=>{
-    hist=sv.hist.map(h=>({...h})); carryNext=sv.carryNext||[]; cardNext=sv.cardNext||null; mailKept=sv.mailKept;
+    hist=sv.hist.map(h=>({...h})); carryNext=sv.carryNext||[]; cardNext=sv.cardNext||null; mailKept=sv.mailKept; parcelOpen=sv.parcelOpen!=null?sv.parcelOpen:null;
     $("bootOvl").style.display="none"; startDay(sv.day,false);
   };
 }
@@ -427,7 +543,9 @@ function startDay(idx, coldOpen){
 }
 function showBrief(){
   const D=E.DAYS[S.dayIdx];
-  $("briefPanel").innerHTML=`<div class="ptag">DAY ${S.dayNo} / 5</div>
+  const drip=E.DRIPS[S.dayIdx];
+  $("briefPanel").innerHTML=`${drip?`<div class="rule" style="color:var(--dim)"><span class="ptag" style="display:block;margin:0 0 4px">${T("— 밤 사이 —","— OVERNIGHT —")}</span>${T(drip.ko,drip.en)}</div>`:""}
+   <div class="ptag">DAY ${S.dayNo} / 10 ${S.dayIdx>=5?T("· 첫 출근 주","· WORK WEEK"):T("· 이사 첫 주","· MOVE-IN WEEK")}</div>
    <h1 style="font-size:22px;letter-spacing:3px">${T(D.ko,D.en)}</h1>
    <div class="rule">${T(D.bko,D.ben)}</div>
    ${S.notes.length? `<div class="ptag" style="margin-top:10px">${T("오늘의 규칙 — 어제가 만든 것","TODAY'S RULES — MADE BY YESTERDAY")}</div>`+S.notes.map(n=>`<div class="rule"><b>»</b> ${T(n.ko,n.en)}</div>`).join(""):""}
@@ -467,202 +585,4 @@ function addGhost(fromT){
   const g=document.createElement("div"); g.className="ghost"; g.style.top=pct(fromT)+"%"; g.style.right=(90+(ghosts++%3)*34)+"px";
   g.textContent="+"+S.snzMin+"▸"; tl.appendChild(g);
 }
-function markChip(id,cls){ const c=$("chip_"+id); if(c) c.classList.add(cls); }
-
-/* ---- render / forecast ---- */
-function render(){
-  $("clock").textContent=E.fmt(S.now);
-  const swb=$("swb"); if(swb){ swb.textContent=E.fmt(S.now); $("sweep").style.top=pct(S.now)+"%"; }
-  $("dayChip").textContent="DAY "+S.dayNo+"/5";
-  $("snzChip").textContent="+"+S.snzMin+" x"+S.snz;
-  const f=E.forecast(S);
-  let html="<b>"+T("이대로면","AS IS")+"</b> "+f.map(o=>{
-    const cls=o.v==="ok"?"fok":o.v==="warn"?"fwarn":"fbad";
-    return `<span class="${o.done?'fdim':''}"><span class="${cls}">${o.v==="ok"?"✓":o.v==="warn"?"△":"✗"}</span>${o.tag}</span>`;
-  }).join(" ");
-  if(S.showLeaveBy && !S.left) html+=` <span class="fwarn">| LEAVE BY ${E.fmt(S.leaveBy)}</span>`;
-  $("fc").innerHTML=html;
-  $("leaveBtn").style.display=(S.awake&&!S.left&&!ringing)?"block":"none";
-  $("leaveBtn").textContent="▶ "+T("지금 나간다 · 역까지 "+S.walk+"분","LEAVE NOW · "+S.walk+" min walk");
-}
-
-/* ---- toast ---- */
-let toastTm;
-function toast(msg){
-  const t=$("toast"); t.textContent=msg; t.style.opacity=1;
-  clearTimeout(toastTm); toastTm=setTimeout(()=>t.style.opacity=0,2000);
-}
-
-/* ---- loop ---- */
-function speed(){ return montage?32:(S.now<S.alarms[0].t-2?55:170); }
-function loop(){ if(paused) return; timer=setTimeout(()=>{ tick(); loop(); }, speed()); }
-function tick(){
-  const r=E.step(S);
-  if(S.ev){ handleEv(S.ev); S.ev=null; }
-  if(r&&r.end){ endDay(); return; }
-  if(r&&r.ring&&!ringing) openRing(r.ring);
-  render();
-}
-function handleEv(ev){
-  if(ev.type==="natural") toast(T("…저절로 깼다. "+E.fmt(S.now),"…woke by yourself. "+E.fmt(S.now)));
-  if(ev.type==="doorMissLeft"){ markChip(ev.a.id,"off"); toast(T("부재중 — 문 앞의 발소리가 멀어진다","not home — footsteps fade from the door")); }
-  if(ev.type==="doorDeaf"){ markChip(ev.a.id,"off"); toast(T("통화 소리에 초인종을 못 들었다","the call drowned out the doorbell")); }
-  if(ev.type==="doorAuto"){ markChip(ev.a.id,"done"); toast(T("메모 덕에 문 앞에 두고 갔다 ✓","the memo worked — left at the door ✓")); }
-}
-
-/* ---- ring sheet ---- */
-function openRing(a){
-  ringing=a; paused=true; clearTimeout(timer);
-  $("chip_"+a.id).classList.add("ring");
-  $("sheetIdle").style.display="none"; $("sheetHead").style.display="flex"; $("btns").style.display="flex";
-  $("shName").innerHTML=`<span class="amberc">▶ ${a.tag}</span> ${T(a.ko,a.en)} — ${E.fmt(S.now)}<span class="sub">${sub(a)}</span>`;
-  const needAwake=(a.kind!=="wake")&&!S.awake;
-  $("bDo").innerHTML=needAwake?`zzz<small>${T("자는 중","asleep")}</small>`:doLabel(a);
-  $("bDo").disabled=needAwake;
-  const can=E.canSnz(S,a);
-  $("bSnz").disabled=!can;
-  $("bSnz").innerHTML=`+${S.snzMin}<small>${can?T(a.kind==="door"?"기다려 달란다":"미루기", a.kind==="door"?"ask to wait":"snooze"):T(a.lock?"고정됨":"못 미룸",a.lock?"locked":"too late")}</small>`;
-  $("bOff").innerHTML=`✕<small>${T("끄기","off")}</small>`;
-  render();
-}
-function doLabel(a){
-  const m={wake:T("일어난다","get up"),window:T("한다","do it"),street:T("받아 간다","grab it"),call:T("받는다","answer"),leave:T("나간다","leave"),door:T("문 연다","open")};
-  return `▶<small>${m[a.kind]}</small>`;
-}
-function sub(a){
-  if(a.kind==="wake") return T("오늘이 시작되려 한다","the day wants to start");
-  if(a.id==="pill") return T("마감 "+E.fmt(S.pillOk)+" (늦으면 △)","by "+E.fmt(S.pillOk)+" (late = △)");
-  if(a.kind==="window") return T("마감 "+E.fmt(a.win[0]),"by "+E.fmt(a.win[0]));
-  if(a.kind==="street") return T("마감 "+E.fmt(a.win[0])+" · 길에서 가능","by "+E.fmt(a.win[0])+" · works en route");
-  if(a.kind==="call") return T("통화 "+a.dur+"분","a "+a.dur+"-min call");
-  if(a.kind==="leave") return T("역까지 "+S.walk+"분 · 시한 "+E.fmt(S.leaveBy),S.walk+" min walk · by "+E.fmt(S.leaveBy));
-  if(a.kind==="door") return a.wait>0&&a.snoozes<a.wait? T("문 밖에 누가 있다 · 한 번은 기다림","someone's outside · will wait once"):T("기다려주지 않는다","won't wait");
-  return "";
-}
-function closeRing(){
-  if(!ringing) return;
-  const c=$("chip_"+ringing.id); if(c) c.classList.remove("ring");
-  ringing=null; idleSheet(); paused=false; render(); loop();
-}
-function idleSheet(){
-  $("sheetHead").style.display="none"; $("btns").style.display="none";
-  $("sheetIdle").style.display="block";
-  $("sheetIdle").textContent=T("... 아침이 흐른다 ...","... morning flows ...");
-}
-$("bSnz").onclick=()=>{ if(!ringing||$("bSnz").disabled) return;
-  const a=ringing; addGhost(a.t); E.act(S,a,"snz"); moveChip(a);
-  toast(a.tag+" +"+S.snzMin+T("분 → ","min → ")+E.fmt(a.t)); closeRing(); };
-$("bOff").onclick=()=>{ if(!ringing) return;
-  const a=ringing; E.act(S,a,"off"); markChip(a.id,"off");
-  toast(a.kind==="wake"?T("껐다. 아무도 깨우지 않는다","off. no one will wake you"):T(a.ko+" — 안 하기로 했다",a.en+" — not doing it"));
-  closeRing(); };
-$("bDo").onclick=()=>{ if(!ringing||$("bDo").disabled) return;
-  const a=ringing; const wasLeave=a.kind==="leave"; E.act(S,a,"do"); markChip(a.id,"done");
-  if(a.kind==="wake") toast(S.coffeeGiven?T("일어났다 — 커피 내릴 시간도 있다 ✓","up — time for coffee ✓"):T("일어났다 "+E.fmt(S.now),"up at "+E.fmt(S.now)));
-  else if(a.kind==="call") toast(T("통화 시작 ("+a.dur+"분)","on the phone ("+a.dur+" min)"));
-  else if(wasLeave){ montage=true; toast(T(E.fmt(S.now)+" 출발 — 역까지 "+S.walk+"분",E.fmt(S.now)+" — walking, "+S.walk+" min")); }
-  else toast(a.tag+" ✓");
-  if(wasLeave){ S.alarms.forEach(x=>{ if(x.st==="done"&&S.res[x.id]==="bad") markChip(x.id,"off"); }); }
-  closeRing(); };
-$("leaveBtn").onclick=()=>{ if(ringing||!S.awake||S.left) return;
-  E.leave(S); montage=true;
-  S.alarms.forEach(x=>{ if(x.st==="done"&&S.res[x.id]==="bad") markChip(x.id,"off"); });
-  toast(T(E.fmt(S.now)+" 출발 — 역까지 "+S.walk+"분",E.fmt(S.now)+" — walking, "+S.walk+" min")); render(); };
-
-/* ---- end of day ---- */
-function endDay(){
-  paused=true; clearTimeout(timer);
-  const tier=E.tier(S);
-  hist.push({tier, snz:S.snz, snoozed:S.snoozed, seq:S.seq});
-  carryNext=E.carries(S,hist.slice(0,-1));
-  cardNext=null;
-  setTimeout(()=>showReport(tier),500);
-}
-function showReport(tier){
-  const g=E.goals(S), tdef=TIERS[tier];
-  const mail=E.MAILS[S.dayIdx];
-  const last=S.dayIdx===4;
-  let html=`<div class="ptag">MORNING REPORT — DAY ${S.dayNo}/5</div>
-   <div class="verdict ${tdef[2]}">${T(tdef[0],"["+tdef[1]+"]")}</div>`;
-  html+=g.map(x=>`<div class="rrow">${x.tag} <span style="color:var(--dim);font-weight:600">${T(x.ko,x.en)}</span><span class="mark ${x.v}">${x.v==="ok"?"✓":x.v==="warn"?"△":"✗"}</span></div>`).join("");
-  html+=`<div class="rrow">CALM <span style="color:var(--dim);font-weight:600">${T("여유","calm")}</span><span class="mark ${S.coffeeGiven?"ok":""}" style="${S.coffeeGiven?"":"color:var(--dim)"}">${S.coffeeGiven?"✓":"—"}</span></div>`;
-  html+=`<div class="stats">${T("기상","wake")} ${S.wakeTime?E.fmt(S.wakeTime):"—"} · +${S.snzMin} x${S.snz} · ${T("출발","left")} ${S.leaveTime?E.fmt(S.leaveTime):"—"}</div>`;
-  html+=`<div id="mailBox"><div class="mh">${T("우편함 — 오늘도 한 통","MAILBOX — ONE MORE TODAY")}</div><span id="mailTxt"></span></div>`;
-  if(last){
-    html+=`<div class="cardRow">
-      <button class="card" id="mailKeep"><b>${T("보관한다","KEEP IT")}</b>${T("서랍에 넣는다. 다섯 통 전부.","Into the drawer. All five.")}</button>
-      <button class="card" id="mailBack"><b>${T("반송한다","SEND BACK")}</b>${T("\"수취인 없음\". 전부 되돌린다.","\"No such resident.\" All of it.")}</button>
-    </div>`;
-  } else {
-    html+=`<div class="ptag" style="margin-top:12px">${T("내일 카드 — 하나만, 내일 하루만","TOMORROW CARD — ONE, FOR ONE DAY")}</div>
-      <div class="cardRow" id="cardRow"></div>
-      <button class="adbtn" id="adBtn">AD ${T("광고 보고 3장 다시 뽑기 (모의)","watch ad, redraw 3 (mock)")}</button>
-      <button class="go ghostbtn" id="skipCard">${T("그냥 잔다 (카드 없이)","JUST SLEEP (no card)")}</button>`;
-  }
-  $("resPanel").innerHTML=html;
-  $("resOvl").style.display="flex";
-  typeMail(T(mail.ko,mail.en));
-  if(last){
-    $("mailKeep").onclick=()=>{ mailKept=true; weekly(); };
-    $("mailBack").onclick=()=>{ mailKept=false; weekly(); };
-  } else {
-    dealCards();
-    $("adBtn").onclick=adRedraw;
-    $("skipCard").onclick=()=>{ cardNext=null; nextDay(); };
-  }
-}
-let mailTm=null;
-function typeMail(txt){
-  clearInterval(mailTm); const el=$("mailTxt"); if(!el) return; el.textContent=""; let i=0;
-  mailTm=setInterval(()=>{ el.textContent=txt.slice(0,++i); if(i>=txt.length) clearInterval(mailTm); },16);
-}
-function draw3(){
-  const pool=[...E.CARDS]; const out=[];
-  while(out.length<3){ out.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
-  return out;
-}
-function dealCards(){
-  const cs=draw3();
-  $("cardRow").innerHTML=cs.map(c=>`<button class="card" data-c="${c.id}"><b>${T(c.ko,c.en)}</b><span class="up">+ ${T(c.uko,c.uen)}</span><br><span class="dn">− ${T(c.dko,c.den)}</span></button>`).join("");
-  $("cardRow").querySelectorAll(".card").forEach(b=>b.onclick=()=>{ cardNext=b.dataset.c; nextDay(); });
-}
-function adRedraw(){
-  if(adUsed) return; adUsed=true;
-  const b=$("adBtn"); let n=3; b.disabled=true; b.textContent="AD ▶ "+n;
-  const iv=setInterval(()=>{ n--; if(n<=0){ clearInterval(iv); b.textContent="AD ✓"; dealCards(); } else b.textContent="AD ▶ "+n; },700);
-}
-function nextDay(){
-  saveGame();
-  $("resOvl").style.display="none";
-  startDay(S.dayIdx+1,false);
-}
-function weekly(){
-  saveGame();
-  const names=["MON","TUE","WED","THU","FRI"];
-  const tot=hist.reduce((a,h)=>a+h.snz,0), perf=hist.filter(h=>h.tier===3).length;
-  let html=`<div class="ptag">WEEKLY REPORT — ${T("이사 첫 주","MOVE-IN WEEK")}</div>
-   <div class="wk">${hist.map((h,i)=>`<div>${names[i]}<b class="${TIERS[h.tier][2]}">${h.tier===3?"★":h.tier===2?"✓":h.tier===1?"△":"✗"}</b></div>`).join("")}</div>
-   <div class="stats">${T("완벽한 아침","perfect mornings")} ${perf}/5 · ${T("총 미루기","total snoozes")} x${tot}</div>
-   <div id="mailBox" style="margin-top:14px"><div class="mh">${T("다섯 통의 우편","FIVE LETTERS")}</div>${
-     mailKept? T("서랍 안에서 봉투가 아침마다 조금씩 무거워진다.<br>김서혜의 아침은 어땠을까. 어렵다는 그 아침은.","The envelopes sit in the drawer, a little heavier each morning.<br>What were Kim Seo-hye's mornings like — the hard ones?")
-     : T("\"수취인 없음\". 전부 돌려보냈다.<br>남의 아침은 남의 것이다. 그래도 H의 봉투는 두꺼웠다.","\"No such resident.\" All returned.<br>Other people's mornings are their own. Still — H's envelope was thick.")
-   }</div>
-   <div class="flavor">${T("다음 주: 첫 출근. 아침은 또 온다.","Next week: first day at work. Mornings keep coming.")}</div>
-   <button class="go" id="againW">⟳ ${T("새로운 한 주","ANOTHER WEEK")}</button>
-   <div class="build-meta" data-build-meta>DEPLOY</div>`;
-  $("resPanel").innerHTML=html;
-  $("againW").onclick=()=>{ wipe(); hist=[]; carryNext=[]; cardNext=null; mailKept=null; $("resOvl").style.display="none"; startDay(0,true); };
-}
-
-/* ---- lang ---- */
-$("langBtn").textContent=LANG==="ko"?"EN":"KO";
-$("langBtn").onclick=()=>{
-  LANG=LANG==="ko"?"en":"ko"; localStorage.setItem("snooze_lang",LANG);
-  $("langBtn").textContent=LANG==="ko"?"EN":"KO";
-  if(S&&!S.done){ buildTl(); render(); if(ringing){ const a=ringing; ringing=null; openRing(a); } else idleSheet(); }
-};
-
-boot();
-</script>
-</body>
-</html>
+function markChip(id,cls){ con

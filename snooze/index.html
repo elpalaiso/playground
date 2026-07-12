@@ -279,7 +279,7 @@ E.buildDay=function(idx, carry, cardId){
   const D=E.DAYS[idx];
   const s={
     dayIdx:idx, dayNo:D.id, now:E.START, awake:false, wakeOff:false, busyUntil:0,
-    left:false, leaveTime:null, wakeTime:null, snz:0, snoozed:{}, res:{}, seq:[],
+    left:false, leaveTime:null, wakeTime:null, snz:0, snoozed:{}, res:{}, resT:{}, seq:[],
     walk:D.walk||E.WALK, depart:D.depart||E.DEPART, coffee:D.coffee!=null?D.coffee:E.COFFEE, natural:D.natural!=null?D.natural:E.NATURAL,
     warnBand:D.warnBand!=null?D.warnBand:null,
     snzMin:9, lateGrace:0, doorAuto:false, walkCall:false, busyDeaf:false,
@@ -408,9 +408,9 @@ E.act=function(s,a,what){
     s.awake=true; s.wakeTime=s.now;
     if(s.coffee>=0 && s.now<=s.coffee){ s.coffeeGiven=true; s.res.coffee="ok"; }
   }
-  else if(a.kind==="window"||a.kind==="street"){ s.res[a.id]=E.winVerd(a,s,s.now); }
-  else if(a.kind==="call"){ s.busyUntil=s.now+a.dur; s.res[a.id]=E.callVerd(s,s.now,a.dur); }
-  else if(a.kind==="door"){ s.res[a.id]="ok"; }
+  else if(a.kind==="window"||a.kind==="street"){ s.res[a.id]=E.winVerd(a,s,s.now); s.resT[a.id]=s.now; }
+  else if(a.kind==="call"){ s.busyUntil=s.now+a.dur; s.res[a.id]=E.callVerd(s,s.now,a.dur); s.resT[a.id]=s.now; }
+  else if(a.kind==="door"){ s.res[a.id]="ok"; s.resT[a.id]=s.now; }
   else if(a.kind==="leave"){ E.leave(s); }
 };
 E.leave=function(s){
@@ -457,6 +457,16 @@ E.forecast=function(s){
   else{ const la=s.alarms.find(a=>a.kind==="leave"); tLeave=Math.max(s.now, la&&la.st==="pending"? la.t : s.now); }
   out.push({tag:"TRAIN", v:s.left? (s.res.train||E.trainVerd(s,s.leaveTime)) : E.trainVerd(s,tLeave), done:!!s.left});
   return out;
+};
+
+/* 복기용 — 목표별 마감 */
+E.deadline=function(s,a){
+  if(!a) return s.leaveBy;
+  if(a.id==="pill") return s.pillOk;
+  if(a.kind==="window"||a.kind==="street") return a.win[0]+((a.id==="trash"||a.id==="chore")?(s.chWin||0):0);
+  if(a.kind==="call") return 470-a.dur;
+  if(a.kind==="door") return a.t;
+  return s.leaveBy;
 };
 
 /* ---- day verdict + carries for tomorrow ---- */
@@ -707,10 +717,23 @@ function showReport(tier){
   const noCard=carryNext.includes("rhythm");
   let html=`<div class="ptag">MORNING REPORT — DAY ${S.dayNo}/10</div>
    <div class="verdict ${tdef[2]}">${T(tdef[0],"["+tdef[1]+"]")}</div>`;
-  html+=g.map(x=>`<div class="rrow">${x.tag} <span style="color:var(--dim);font-weight:600">${T(x.ko,x.en)}</span><span class="mark ${x.v}">${x.v==="ok"?"✓":x.v==="warn"?"△":"✗"}</span></div>`).join("");
+  html+=g.map(x=>{
+    let why="";
+    if(x.v!=="ok"){
+      const al=S.alarms.find(a=>a.id===x.id);
+      const dl=E.deadline(S,al);
+      const done= x.id==="train"? S.leaveTime : S.resT[x.id];
+      why=`<small style="color:var(--dim);font-weight:600;margin-left:6px">${ done? E.fmt(done)+" · "+T("마감","due")+" "+E.fmt(dl) : T("놓침 · 마감 ","missed · due ")+E.fmt(dl) }</small>`;
+    }
+    return `<div class="rrow">${x.tag} <span style="color:var(--dim);font-weight:600">${T(x.ko,x.en)}</span>${why}<span class="mark ${x.v}">${x.v==="ok"?"✓":x.v==="warn"?"△":"✗"}</span></div>`;
+  }).join("");
   html+=`<div class="rrow">CALM <span style="color:var(--dim);font-weight:600">${T("여유","calm")}</span><span class="mark ${S.coffeeGiven?"ok":""}" style="${S.coffeeGiven?"":"color:var(--dim)"}">${S.coffeeGiven?"✓":"—"}</span></div>`;
   html+=`<div class="stats">${T("기상","wake")} ${S.wakeTime?E.fmt(S.wakeTime):"—"} · +${S.snzMin} x${S.snz} · ${T("출발","left")} ${S.leaveTime?E.fmt(S.leaveTime):"—"}</div>`;
   html+=`<div class="stats" style="word-break:break-all;font-size:10.5px">${S.seq.length? T("기록: ","log: ")+S.seq.join(" "):""}</div>`;
+  if(S.dayIdx===9){
+    html+= S.res.callR==="ok"? `<div class="rule" style="border-color:var(--ok)">${T("— 합격입니다. 다음 주부터 나오세요. — 첫 출근이, 진짜가 됐다.","— You got it. Start next week. — The first day just became real.")}</div>`
+    : `<div class="rule" style="border-color:var(--bad)">${T("부재중 1건. 모르는 번호는 다시 걸어주지 않는다.","One missed call. Unknown numbers do not call twice.")}</div>`;
+  }
   html+=`<div id="mailBox"><div class="mh">${T("우편함 — 오늘도 한 통","MAILBOX — ONE MORE TODAY")}</div><span id="mailTxt"></span></div>`;
   if(ch1End){
     html+=`<div class="cardRow">
